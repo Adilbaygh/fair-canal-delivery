@@ -12,10 +12,16 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from faircanal.benchmarks import HAUGHTON_POOLS, haughton_pool
+from faircanal.benchmarks import (
+    HAUGHTON_POOLS,
+    HAUGHTON_SCENARIO,
+    haughton_design_pool,
+    haughton_pool,
+)
 from faircanal.pool import (
     PoolParams,
     homogeneous_roots,
+    ramp_rate,
     simulate_level,
     total_outflow,
 )
@@ -263,3 +269,75 @@ def test_every_parameter_set_declares_where_it_came_from(order: int, index: int)
     assert params.provenance in {"observed", "derived", "assumed"}
     assert params.source, f"{params.name}: no source recorded"
     assert params.units, f"{params.name}: no unit recorded"
+
+
+# ---------------------------------------------------------------------------
+# Consistency between the two model orders of the same reach
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("index", (1, 2))
+def test_first_order_matches_the_third_order_ramp_rate(index: int):
+    """The two orders must describe the same reach on slow timescales.
+
+    The source built its first-order model by matching the slope the level
+    takes under a sustained flow, and said so: it raised the inflow
+    coefficient "by a factor of 1.5" because the two orders disagreed
+    there. The published table is the result of that correction, and this
+    check is what says so - the tabulated values agree with the
+    third-order slopes to within five per cent.
+    """
+    third_in, third_out = ramp_rate(haughton_pool(index, 3))
+    first_in, first_out = ramp_rate(haughton_pool(index, 1))
+    assert first_in == pytest.approx(third_in, rel=0.05)
+    assert first_out == pytest.approx(third_out, rel=0.05)
+
+
+def test_the_one_and_a_half_factor_is_not_applied_twice():
+    """Guard against re-scaling a table that is already scaled.
+
+    Reading Section 4.2 as an instruction rather than as a description
+    would multiply the second pool's inflow coefficient again, putting it
+    about half as far out as it started - the wrong way. Both wrong
+    readings are checked, so neither can be introduced quietly.
+    """
+    third_in, _ = ramp_rate(haughton_pool(2, 3))
+    tabulated = haughton_pool(2, 1).b[0]
+
+    assert tabulated / third_in == pytest.approx(0.99, abs=0.02)
+    assert abs(tabulated * 1.5 / third_in - 1.0) > 0.4, "re-scaling must be far worse"
+    assert abs(tabulated / 1.5 / third_in - 1.0) > 0.3, "un-scaling must be far worse"
+
+
+def test_the_design_pool_carries_the_re_fitted_delays():
+    """Section 4.2's delays, not Table 1's.
+
+    The source re-fitted the transport delay for the synthesis model and
+    added the filter delay. Using the printed table delays instead would
+    reproduce a different study while looking entirely correct.
+    """
+    for index, expected_tau in ((1, 2), (2, 15)):
+        design = haughton_design_pool(index)
+        table = haughton_pool(index, 1)
+        assert design.tau == expected_tau
+        assert design.tau_bar == 10
+        assert design.tau != table.tau, (
+            "the design delay must differ from the tabulated one"
+        )
+        assert design.b == table.b and design.c == table.c, (
+            "Section 4.2: the parameters b and c are unchanged"
+        )
+
+
+def test_the_scenario_records_the_contradiction_it_found():
+    """The source states its initial condition twice, two different ways.
+
+    Both readings are kept and the one in use is named, so the choice is
+    visible to a reader instead of being buried in a constant.
+    """
+    caption = HAUGHTON_SCENARIO["initial_level_figure_caption"]
+    body = HAUGHTON_SCENARIO["initial_level_body_text"]
+    assert caption != body
+    assert tuple(-v for v in caption) == body, "the two differ exactly by sign"
+    assert HAUGHTON_SCENARIO["initial_level_used"] == caption
+    assert "two ways" in HAUGHTON_SCENARIO["provenance"]

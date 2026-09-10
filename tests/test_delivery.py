@@ -270,3 +270,18 @@ def test_filter_is_causal():
     y = apply_filter(spec, x)
     assert y[:120] == pytest.approx(np.zeros(120), abs=1e-15)
     assert y[120] != 0.0
+
+
+def test_the_filter_order_is_the_one_the_paper_states():
+    """Three, from Section 4.1, not four from the released code.
+
+    The paper says "the final design is a third-order filter with a
+    cut-off frequency 3e-3 rad/sec"; the authors' code uses four. That is a
+    difference between their paper and their code, and this study follows
+    the paper. The fourth order stays reachable so the choice can be shown
+    not to drive the results, but it is not the default and there is no
+    default.
+    """
+    assert HAUGHTON_FILTER["order_used"] == HAUGHTON_FILTER["order_in_paper"] == 3
+    assert HAUGHTON_FILTER["order_in_released_code"] == 4
+    assert haughton_filter(HAUGHTON_FILTER["order_used"]).order == 3

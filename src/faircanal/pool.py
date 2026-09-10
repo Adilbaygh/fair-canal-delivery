@@ -50,7 +50,13 @@ from dataclasses import dataclass
 
 import numpy as np
 
-__all__ = ["PoolParams", "simulate_level", "homogeneous_roots", "total_outflow"]
+__all__ = [
+    "PoolParams",
+    "simulate_level",
+    "homogeneous_roots",
+    "total_outflow",
+    "ramp_rate",
+]
 
 
 @dataclass(frozen=True)
@@ -277,3 +283,39 @@ def homogeneous_roots(params: PoolParams) -> np.ndarray:
     roots = np.roots(coefficients)
     order = np.lexsort((roots.real, -np.abs(roots)))
     return roots[order]
+
+
+def ramp_rate(params: PoolParams) -> tuple[float, float]:
+    """Steady-state level change per unit of sustained inflow and outflow.
+
+    A pool integrates, so it has no DC gain in the usual sense: a step in
+    the flow produces a ramp in the level, and what is comparable between
+    two models of the same reach is the slope of that ramp.
+
+    Factoring the unit root out of the third-order denominator leaves
+    ``z^2 - (a1 + a2) z + a1``, which evaluates to ``1 - a2`` at ``z = 1``,
+    so the slopes are ``(b1 - b2 + b3) / (1 - a2)`` for the inflow and
+    ``(c1 - c2 + c3) / (1 - a2)`` for everything leaving at the downstream
+    end. For the first-order model they are simply ``b`` and ``c``.
+
+    This is the quantity the source study matched when it built its
+    first-order approximation, so it is also the quantity that says whether
+    a transcribed parameter set is self-consistent.
+
+    Returns
+    -------
+    tuple[float, float]
+        Slope for the inflow and slope for the outflow, both per step.
+    """
+    if params.order == 1:
+        return float(params.b[0]), float(params.c[0])
+
+    denominator = 1.0 - params.alpha[1]
+    if abs(denominator) < 1e-12:
+        raise ValueError(
+            f"{params.name}: alpha_2 is one, so the wave dynamics are not damped "
+            f"and the ramp rate is undefined"
+        )
+    inflow = (params.b[0] - params.b[1] + params.b[2]) / denominator
+    outflow = (params.c[0] - params.c[1] + params.c[2]) / denominator
+    return float(inflow), float(outflow)
