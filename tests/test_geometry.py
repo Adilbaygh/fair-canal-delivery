@@ -251,3 +251,37 @@ def test_impossible_geometry_is_refused():
 def test_every_pool_records_its_source(pool: TrapezoidalPool):
     assert pool.provenance in {"observed", "derived", "assumed"}
     assert "doi:" in pool.source
+
+
+#: Clemmens et al., Table 3: the discharge each reach carries at capacity,
+#: and the resonance peak height Eq. (3) gives there.
+WM_CAPACITY = (2.0, 2.0, 2.0, 1.6, 1.6, 1.6, 1.3, 1.1)
+WM_RESONANCE_PEAK = (0.190, 0.190, 0.264, 0.190, 0.190, 0.257, 0.263, 0.237)
+
+
+@pytest.mark.parametrize(
+    ("index", "capacity", "published"),
+    list(zip(range(1, 9), WM_CAPACITY, WM_RESONANCE_PEAK)),
+    ids=[f"wm-{i}" for i in range(1, 9)],
+)
+def test_every_published_resonance_peak_is_reproduced(
+    index: int, capacity: float, published: float
+):
+    """All eight of the source's published peaks, from geometry alone.
+
+    This is the strongest check the transcription can be given. Each value
+    uses that reach's bed width, side slope, target level and capacity, so
+    reproducing all eight to the three digits the source prints means every
+    one of those thirty-two numbers is right. A single wrong digit moves
+    its own reach and leaves the others alone, which is exactly what makes
+    the check sharp.
+
+    The depth is the target level: the source's own worked example uses it
+    for the first reach, and it is what the canal is operated at.
+    """
+    pool = WM_POOLS[index - 1]
+    depth = pool.target_level_m
+    velocity = capacity / flow_area(pool, depth)
+    assert resonance_peak_height(pool, depth, velocity) == pytest.approx(
+        published, abs=1e-3
+    )
