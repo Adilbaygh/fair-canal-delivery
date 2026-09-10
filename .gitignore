@@ -1,0 +1,61 @@
+# Allowlist .gitignore.
+#
+# Rule: deny everything, then re-include named public paths. A denylist
+# leaks the manuscript the first time somebody adds a file, and a leak in a
+# public history cannot be undone by deleting the file later.
+#
+# Anything not named below is private. To publish a new file, add one line
+# here and re-run the split audit.
+
+/*
+
+# --- public root files ---------------------------------------------------
+!/.gitignore
+!/.gitattributes
+!/README.md
+!/CITATION.cff
+!/LICENSE
+!/pyproject.toml
+!/main.py
+!/requirements.txt
+!/requirements-lock.txt
+
+# --- public directories --------------------------------------------------
+!/src/
+!/DATA/
+!/results/
+!/tests/
+
+# --- scripts: only named computation scripts are published ---------------
+!/scripts/
+/scripts/*
+!/scripts/record_environment.py
+!/scripts/build_data.py
+!/scripts/run_experiments.py
+!/scripts/make_figures.py
+
+# --- never published, wherever they appear -------------------------------
+**/__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+.pytest_cache/
+*.docx
+*.doc
+*.tex
+*.bib
+*.bbl
+*.aux
+*.synctex.gz
+*.zip
+*.pdf
+*.eps
+.env
+*.key
+*.pem
+*.p12
+secrets.*
+
+# --- the one published exception: figures are computation output ---------
+!/results/figures/*.pdf
+!/results/figures/*.eps

@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Fair-Canal-Delivery: lexicographic max-min water delivery under deadline and capacity limits"
+type: software
+version: "0.1.0"
+authors:
+  # The author list, its order, the affiliations, the corresponding author
+  # and the ORCID identifiers are decided by the corresponding author and
+  # filled in before the first release. Do not add, reorder or complete
+  # this list automatically.
+  - name: "TO BE COMPLETED BEFORE RELEASE"
+license: "TO BE COMPLETED BEFORE RELEASE"
+repository-code: "TO BE COMPLETED BEFORE RELEASE"
+keywords:
+  - irrigation canal control
+  - lexicographic max-min fairness
+  - water delivery scheduling
+  - linear programming
+  - infeasibility certificate

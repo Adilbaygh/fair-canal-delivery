@@ -1,0 +1,6 @@
+# No end-of-line conversion anywhere.
+#
+# Every text file in this repository is written with "\n" pinned, so the
+# bytes on disk are the bytes that were hashed. Letting git rewrite line
+# endings on checkout would break the SHA-256 checksums published in DATA/.
+* -text

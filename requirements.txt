@@ -1,0 +1,7 @@
+# Direct dependencies. The exact resolved versions used to produce the
+# published numbers are pinned in requirements-lock.txt, which is generated
+# from the environment that produced them.
+numpy>=2.0
+scipy>=1.14
+matplotlib>=3.9
+pytest>=8.0
