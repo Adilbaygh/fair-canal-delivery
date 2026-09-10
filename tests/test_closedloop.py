@@ -245,3 +245,28 @@ def test_a_loop_with_mismatched_model_orders_is_refused():
             filter_spec=haughton_filter(3),
             weights=LqWeights(),
         )
+
+
+def test_the_level_holds_through_a_sustained_offtake():
+    """The loop's headline behaviour, and what a missing pipeline costs.
+
+    While a announced offtake runs, the controller should replace what is
+    drawn closely enough that the level stays near its set-point. It has no
+    integral action, so any offset it lets open during the transition stays
+    open for the rest of the run - which makes this both a check on the
+    loop and the reason the announced-offtake pipeline is not optional.
+    """
+    steps = 600
+    offtake = np.zeros((steps, len(CANALS)))
+    offtake[250:450, 0] = disturbance_amplitude()
+    result = simulate_closed_loop(source_loop(), np.zeros(len(CANALS)), offtake)
+
+    held = result.levels[300:440, 0]
+    assert abs(held.mean()) < 0.5, (
+        f"the level sat at {held.mean():.2f} through the offtake; with the "
+        f"announced-offtake pipeline dropped from the control law it sits "
+        f"near minus ten, which is the delay times the level rate"
+    )
+    assert np.abs(result.levels).max() <= 5.5, (
+        "nothing should exceed the initial condition by much"
+    )

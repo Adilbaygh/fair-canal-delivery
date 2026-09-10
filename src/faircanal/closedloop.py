@@ -269,8 +269,13 @@ def simulate_closed_loop(
         if available > 0:
             preview[:available] = planned_source[t : t + available]
 
+        announced = np.zeros((lag, n))
+        for k in range(lag):
+            if t - 1 - k >= 0:
+                announced[k] = planned_source[t - 1 - k]
+
         # 1. command, from the a priori estimate
-        command = law.input_at(estimates[t], history, preview)
+        command = law.input_at(estimates[t], history, preview, announced)
         commanded[t] = command
 
         # 2. filter the command and the planned offtake, channel by channel

@@ -485,6 +485,7 @@ class LinearControlLaw:
     k_levels: np.ndarray
     k_history: np.ndarray
     k_preview: np.ndarray
+    k_disturbance_history: np.ndarray
     lag: int
     horizon: int
 
@@ -493,8 +494,15 @@ class LinearControlLaw:
         levels: np.ndarray,
         history: np.ndarray,
         preview: np.ndarray,
+        disturbance_history: np.ndarray | None = None,
     ) -> np.ndarray:
-        """Apply the law once."""
+        """Apply the law once.
+
+        ``disturbance_history`` holds the offtakes announced before the
+        current step that have not reached their pool yet. Omitting it
+        assumes nothing is in that pipeline, which is true only at the
+        start of a run.
+        """
         n = self.k_levels.shape[0]
         if levels.shape != (n,):
             raise ValueError(f"levels must have shape ({n},), got {levels.shape}")
@@ -506,10 +514,18 @@ class LinearControlLaw:
             raise ValueError(
                 f"preview must have shape ({self.horizon}, {n}), got {preview.shape}"
             )
+        if disturbance_history is None:
+            disturbance_history = np.zeros((self.lag, n))
+        if disturbance_history.shape != (self.lag, n):
+            raise ValueError(
+                f"disturbance_history must have shape ({self.lag}, {n}), "
+                f"got {disturbance_history.shape}"
+            )
         return (
             self.k_levels @ levels
             + self.k_history @ history.ravel()
             + self.k_preview @ preview.ravel()
+            + self.k_disturbance_history @ disturbance_history.ravel()
         )
 
 
@@ -528,7 +544,9 @@ def _least_squares_blocks(
     return np.vstack([root_q * au, selector]), root_q
 
 
-def _history_map(pools: list[PoolParams], steps: int, lag: int) -> np.ndarray:
+def _history_map(
+    pools: list[PoolParams], steps: int, lag: int, signal: str = "input"
+) -> np.ndarray:
     """Levels at times 1..steps caused by inputs applied before time zero.
 
     This one cannot be assembled by shifting the impulse response, and the
@@ -545,7 +563,15 @@ def _history_map(pools: list[PoolParams], steps: int, lag: int) -> np.ndarray:
     applies exactly the part that has not fired yet.
     ``test_the_history_map_does_not_double_count_the_past`` is what stops the
     shortcut coming back.
+
+    ``signal`` selects which pipeline is being mapped. Announced offtakes
+    have one too: a disturbance reaches a pool after the filter delay, so
+    at any moment the ones announced within the last few steps are still on
+    their way. A controller that sees only the future is blind to them, and
+    the size of that blind spot is the delay itself.
     """
+    if signal not in ("input", "disturbance"):
+        raise ValueError(f"signal must be 'input' or 'disturbance', got {signal!r}")
     n = len(pools)
     no_input = np.zeros((steps, n))
     no_disturbance = np.zeros((steps, n))
@@ -554,13 +580,14 @@ def _history_map(pools: list[PoolParams], steps: int, lag: int) -> np.ndarray:
         for k in range(lag):
             history = np.zeros((lag, n))
             history[k, i] = 1.0
+            blank = np.zeros((lag, n))
             column_map[:, k * n + i] = simulate_first_order(
                 pools,
                 no_input,
                 no_disturbance,
                 np.zeros(n),
-                u_history=history,
-                d_history=np.zeros((lag, n)),
+                u_history=history if signal == "input" else blank,
+                d_history=history if signal == "disturbance" else blank,
             )[1:].ravel()
     return column_map
 
@@ -589,7 +616,8 @@ def control_law(
 
     a0, _, ad = _response_maps(pools, horizon)
     design, root_q = _least_squares_blocks(pools, weights, horizon)
-    ah = _history_map(pools, horizon, lag)
+    ah = _history_map(pools, horizon, lag, "input")
+    adh = _history_map(pools, horizon, lag, "disturbance")
 
     rows = horizon * n
     pseudo = np.linalg.pinv(design)
@@ -599,6 +627,7 @@ def control_law(
         k_levels=(transfer @ a0)[:n],
         k_history=(transfer @ ah)[:n],
         k_preview=(transfer @ ad)[:n],
+        k_disturbance_history=(transfer @ adh)[:n],
         lag=lag,
         horizon=horizon,
     )

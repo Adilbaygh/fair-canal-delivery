@@ -517,3 +517,62 @@ def test_the_law_uses_its_preview():
     pools = [haughton_design_pool(i) for i in (1, 2)]
     law = control_law(pools, LqWeights(), horizon=300)
     assert np.abs(law.k_preview).max() > 1e-6
+
+
+def test_the_law_matches_the_arbiter_while_an_offtake_runs():
+    """The check that found the missing pipeline.
+
+    An offtake reaches its pool after the filter delay, so between being
+    announced and arriving it sits in a pipeline the controller has to know
+    about - exactly like a command already issued. A law that sees only the
+    future preview is blind to it, and the size of the blind spot is the
+    delay: about ten steps of a disturbance that moves the level by one unit
+    a minute.
+
+    The comparison is made with and without the pipeline term, so the test
+    says both that the law is right and how wrong it is without it. Note
+    where the error appears: nothing before the offtake starts, nothing
+    after the pipeline drains, and everything in between.
+    """
+    pools = [haughton_design_pool(i) for i in (1, 2)]
+    n, weights = 2, LqWeights()
+    law = control_law(pools, weights, horizon=400)
+
+    offtake = np.zeros((400, n))
+    offtake[100:200, 0] = 5.0
+    disturbance = offtake_to_source_disturbance(offtake)
+    optimal_u, optimal_y, _ = solve_lq_trajectory(
+        pools, weights, np.zeros(n), disturbance
+    )
+
+    def state_at(step):
+        history = np.zeros((law.lag, n))
+        announced = np.zeros((law.lag, n))
+        for k in range(law.lag):
+            if step - 1 - k >= 0:
+                history[k] = optimal_u[step - 1 - k]
+                announced[k] = disturbance[step - 1 - k]
+        preview = np.zeros((law.horizon, n))
+        available = min(law.horizon, 400 - step)
+        preview[:available] = disturbance[step : step + available]
+        return history, preview, announced
+
+    for step in (0, 50, 99, 105, 120, 150, 199, 205, 250):
+        history, preview, announced = state_at(step)
+        assert law.input_at(
+            optimal_y[step], history, preview, announced
+        ) == pytest.approx(optimal_u[step], abs=1e-4), (
+            f"the law and the arbiter disagree at step {step}"
+        )
+
+    # And the pipeline is not decoration: dropping it is badly wrong, and
+    # only while there is something in it.
+    history, preview, announced = state_at(150)
+    blind = law.input_at(optimal_y[150], history, preview)
+    assert np.abs(blind - optimal_u[150]).max() > 10.0
+
+    history, preview, announced = state_at(50)
+    early = law.input_at(optimal_y[50], history, preview)
+    assert early == pytest.approx(optimal_u[50], abs=1e-4), (
+        "before the offtake starts the pipeline is empty and cannot matter"
+    )
