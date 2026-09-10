@@ -19,6 +19,7 @@ computed from observed values, ``assumed`` for one chosen by the authors.
 
 from __future__ import annotations
 
+from faircanal.delivery import FilterSpec
 from faircanal.pool import PoolParams
 
 __all__ = [
@@ -27,6 +28,7 @@ __all__ = [
     "HAUGHTON_POOLS",
     "HAUGHTON_FILTER",
     "haughton_pool",
+    "haughton_filter",
 ]
 
 HAUGHTON_SOURCE = (
@@ -137,3 +139,27 @@ def haughton_pool(index: int, order: int) -> PoolParams:
     if index not in pools:
         raise ValueError(f"pool index must be one of {sorted(pools)}, got {index}")
     return pools[index]
+
+
+def haughton_filter(order: int) -> FilterSpec:
+    """Return the source study's low-pass filter at the requested order.
+
+    The order is required rather than defaulted: the paper reports three
+    and the released code uses four, and picking one silently would bury
+    the disagreement instead of settling it.
+    """
+    candidates = (
+        HAUGHTON_FILTER["order_in_paper"],
+        HAUGHTON_FILTER["order_in_released_code"],
+    )
+    if order not in candidates:
+        raise ValueError(
+            f"the sources report orders {candidates}; refusing to build a "
+            f"filter of order {order} without a reason recorded first"
+        )
+    return FilterSpec(
+        order=order,
+        cutoff_rad_per_s=HAUGHTON_FILTER["cutoff_rad_per_s"],
+        sample_time_s=HAUGHTON_FILTER["sample_time_s"],
+        family=HAUGHTON_FILTER["family"],
+    )

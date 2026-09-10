@@ -28,10 +28,20 @@ DT_BLOCK_S: float = 900.0
 #: Plant steps per decision block.
 STEPS_PER_BLOCK: int = 15
 
-#: Horizon margin after the last delivery window [plant steps]. The filter
-#: impulse response stays above 1e-4 for 81 minutes, so 90 minutes of margin
-#: keeps the tail inside the horizon and the volume balance honest.
-SETTLE_MARGIN_STEPS: int = 90
+#: Horizon margin after the last delivery window [plant steps].
+#:
+#: The filter tail has to fit inside the horizon, or part of every order
+#: falls off the end and the volume balance stops adding up without
+#: anything complaining. The margin therefore has to cover the memory of
+#: whichever filter order is in use, and the two candidate orders differ:
+#: the third-order filter needs 82 steps and the fourth-order one needs
+#: 103. The margin covers both with room to spare, so the horizon does not
+#: have to be revisited when the order question is settled. A longer
+#: horizon costs solver time and nothing else.
+#:
+#: test_settle_margin_covers_the_filter_memory derives the requirement from
+#: the filter itself rather than restating these numbers.
+SETTLE_MARGIN_STEPS: int = 120
 
 assert abs(DT_BLOCK_S - STEPS_PER_BLOCK * DT_PLANT_S) < 1e-12, (
     "DT_BLOCK_S must equal STEPS_PER_BLOCK * DT_PLANT_S"
