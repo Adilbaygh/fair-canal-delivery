@@ -32,12 +32,13 @@ __all__ = [
 ]
 
 HAUGHTON_SOURCE = (
-    "Heyden M, Pates R, Rantzer A. Structured controller synthesis for "
-    "irrigation networks. arXiv:2203.16575, Table 1. Object: Haughton main "
-    "channel, Australia, pools 9 and 10. Sample time one minute. The "
-    "coefficients originate from Ooi SK, Krutzen M, Weyer E (2005), Control "
-    "Engineering Practice 13(4):461-471, and are reproduced openly in the "
-    "arXiv paper."
+    "Heyden M, Pates R, Rantzer A (2022). A Structured Optimal Controller for "
+    "Irrigation Networks. European Control Conference (ECC), "
+    "doi:10.23919/ECC55457.2022.9838239. Preprint: arXiv:2203.16575. "
+    "Coefficients from Table 1, whose caption reads: 'Parameters for first and "
+    "third-order models. For first-order: b_i = b_{i,1} and c_i = c_{i,1}. "
+    "Sample time: one minute.' The two reaches are labelled 1 and 2 there and "
+    "belong to the Haughton main channel, Australia."
 )
 
 HAUGHTON_UNITS_NOTE = (
