@@ -382,3 +382,30 @@ def test_a_warm_up_that_swallows_the_run_is_refused():
     )
     with pytest.raises(ProgrammeError, match="warm-up"):
         assemble(swallowed, mapping())
+
+
+def test_the_budget_allowance_reaches_the_row_it_is_meant_for():
+    """The knob H5 turns, wired to the constraint it is supposed to move.
+
+    The pre-registered question is whether the method's advantage comes
+    from its criterion or simply from releasing more water, and the way to
+    answer it is to run the same scan with the volume budget loosened. So
+    the allowance has to reach C3 and nothing else: the budget's
+    right-hand side moves by exactly the demand times the allowance, and
+    every other row stays where it was.
+    """
+    tight = scenario(0.7)
+    loose = scenario(0.7, overshoot=0.5)
+    first, second = assemble(tight, mapping()), assemble(loose, mapping())
+    assert first.row_counts == second.row_counts
+
+    start = 0
+    for name, rows in first.row_counts.items():
+        stop = start + rows
+        moved = second.ratio.b_ub[start:stop] - first.ratio.b_ub[start:stop]
+        if name == "C3 volume budget":
+            expected = np.array([0.5 * user.demand_m3 for user in tight.users])
+            assert np.allclose(moved, expected)
+        else:
+            assert np.allclose(moved, 0.0), f"{name} moved and should not have"
+        start = stop

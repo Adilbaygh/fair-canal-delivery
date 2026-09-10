@@ -372,6 +372,7 @@ def one_user_per_gate(
     demand_scale: float = 1.0,
     lead_blocks: int = 0,
     announced_block: int = 0,
+    overshoot: float = 0.0,
     steps_per_block: int = STEPS_PER_BLOCK,
     dt_s: float = DT_PLANT_S,
     name: str = "one-per-gate",
@@ -394,6 +395,14 @@ def one_user_per_gate(
 
     The window otherwise runs to the end, which is the least restrictive
     choice and therefore the one that hides the least.
+
+    ``overshoot`` is the delivery allowance of the volume budget C3: how
+    much more than the demand a user may be released, as a fraction. Zero
+    is the study's own setting and the one every headline number uses. It
+    is a parameter here because one of the pre-registered questions is
+    whether the method's advantage comes from the criterion or simply from
+    letting more water out, and the only way to answer that is to run the
+    same scan with the budget loosened and see whether anything moves.
     """
     from faircanal.plant import horizon_for
 
@@ -414,6 +423,7 @@ def one_user_per_gate(
                 demand_m3=demand_scale * reach.offtake_m3_s * steps * dt_s,
                 window=window,
                 announced_block=announced_block,
+                overshoot=overshoot,
             )
         )
     return Scenario(
