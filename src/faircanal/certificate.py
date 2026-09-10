@@ -181,7 +181,9 @@ class Certificate:
     def impossible_users(self) -> tuple[str, ...]:
         """Users no allocation decision could have filled."""
         return tuple(
-            name for name, ceiling in sorted(self.ceilings.items()) if ceiling < 1.0 - 1e-9
+            name
+            for name, ceiling in sorted(self.ceilings.items())
+            if ceiling is not None and ceiling < 1.0 - 1e-9
         )
 
     def report(self) -> str:
@@ -469,7 +471,11 @@ def certify_no_schedule(programme: Programme) -> Certificate:
     try:
         ceilings = structural_ceilings(programme)
     except CertificateError:
-        ceilings = {name: float("nan") for name in programme.ratio.names}
+        # Not a number that happens to be missing - a quantity that is not
+        # defined here, because a ceiling is the optimum of a programme that
+        # has none. It is written as null rather than NaN: NaN is not valid
+        # JSON, and a results file a strict reader refuses is not archivable.
+        ceilings = {name: None for name in programme.ratio.names}
     return Certificate(
         scenario=programme.scenario.name,
         fulfilled=False,

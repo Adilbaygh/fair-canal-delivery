@@ -234,6 +234,11 @@ def test_a_programme_with_no_schedule_still_says_what_would_make_one():
     certified = certify(programme, None)
     assert not certified.fulfilled
     assert certified.ratios == {}
+    # A ceiling is the optimum of a programme that has none here, so it is
+    # not a number - and it is written as one that JSON has. NaN would be
+    # read back by Python and refused by everything else.
+    assert set(certified.ceilings.values()) == {None}
+    assert certified.impossible_users == ()
     report = certified.report()
     assert "NO SCHEDULE EXISTS" in report
     assert certified.relaxation.feasible

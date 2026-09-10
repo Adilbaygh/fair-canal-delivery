@@ -70,8 +70,25 @@ def write_text(path: str | os.PathLike[str], text: str) -> Path:
 
 
 def write_json(path: str | os.PathLike[str], payload: Any) -> Path:
-    """Write *payload* as deterministic JSON: sorted keys, indent 2, "\n"."""
-    text = json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False)
+    """Write *payload* as deterministic JSON: sorted keys, indent 2, "\n".
+
+    ``allow_nan`` is off, which is the point of this function existing.
+    Python writes NaN and Infinity into JSON happily and reads them back
+    happily, so a file carrying them looks fine until somebody opens it
+    with a strict reader - jq, jsonlite, most of the JavaScript world - and
+    is told the archive is malformed. Refusing here turns that into an
+    error at the moment the value is produced, where it can still be
+    understood, instead of a year later in somebody else's toolchain.
+    """
+    try:
+        text = json.dumps(
+            payload, indent=2, sort_keys=True, ensure_ascii=False, allow_nan=False
+        )
+    except ValueError as error:
+        raise ValueError(
+            f"refusing to write {path}: {error}. JSON has no NaN and no "
+            f"Infinity; a quantity that is not defined is written as null."
+        ) from error
     return write_text(path, text)
 
 
