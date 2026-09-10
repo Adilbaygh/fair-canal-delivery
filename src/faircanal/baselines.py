@@ -92,7 +92,9 @@ from faircanal.leximin import (
     solve_leximin,
     solve_utilitarian,
 )
+from faircanal.plant import CanalPlant
 from faircanal.programme import Programme, movement_tie_break
+from faircanal.upperbound import free_gate_programme
 
 __all__ = [
     "BaselineError",
@@ -107,6 +109,7 @@ __all__ = [
     "utilitarian",
     "leximin",
     "min_spread",
+    "upper_bound",
     "solve_all",
 ]
 
@@ -411,6 +414,47 @@ def leximin(programme: Programme, tie_break: bool = True) -> BaselineResult:
 
 
 # ---------------------------------------------------------------------------
+# M1: the bound, on its own programme
+# ---------------------------------------------------------------------------
+
+
+def upper_bound(programme: Programme, plant: CanalPlant) -> BaselineResult:
+    """M1: what the canal could deliver with a perfect control layer.
+
+    Not a competitor and never reported as one. It frees the gate
+    commands, keeping every physical limit and the filter, so the gap
+    between it and this study's answer is how much of the shortfall the
+    control layer is responsible for. Because the controller's own
+    commands are feasible here, its optimum is never below B4's, and
+    ``test_the_upper_bound_is_above_the_proposed_method`` holds it to
+    that.
+    """
+    free = free_gate_programme(programme, plant)
+    try:
+        result = solve_leximin(free.ratio)
+    except LeximinError as error:
+        raise BaselineError(f"M1: {error}") from error
+
+    orders = free.orders_of(result.z)
+    ratios = true_ratios(programme.ratio, orders)
+    return _result(
+        "M1",
+        programme.ratio,
+        orders,
+        result.n_programmes,
+        float(ratios.min()),
+        {
+            "stage_levels": result.stage_levels,
+            "stage_saturated": result.stage_saturated,
+            "accuracy_bound": result.accuracy_bound,
+            "n_vars": free.ratio.n_vars,
+            "n_equalities": free.ratio.a_eq.shape[0],
+            "controller": "removed; filter and every physical limit kept",
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
 # B5: the competing fairness criterion
 # ---------------------------------------------------------------------------
 
@@ -633,23 +677,27 @@ def min_spread(
 
 
 def solve_all(
-    programme: Programme, codes: tuple[str, ...] = ("B1", "B2", "B3", "B4", "B5")
+    programme: Programme,
+    codes: tuple[str, ...] = ("B1", "B2", "B3", "B4", "B5"),
+    plant: CanalPlant | None = None,
 ) -> dict[str, BaselineResult]:
-    """Solve the named baselines on one programme, sharing what they share.
+    """Solve the named alternatives on one programme, sharing what they share.
 
     B2 needs B1's answer, so B1 is solved once and handed on rather than
     solved twice; B5 starts from it as well, which costs nothing and
-    starts the iteration inside the feasible set. A baseline that cannot
-    be solved raises, because at an infeasible point the answer is a
-    certificate and not a row of numbers.
+    starts the iteration inside the feasible set. M1 is the exception: it
+    is a different programme with different variables, so it needs the
+    plant and is solved on its own. A baseline that cannot be solved
+    raises, because at an infeasible point the answer is a certificate and
+    not a row of numbers.
     """
     unknown = set(codes) - set(CODES)
     if unknown:
         raise BaselineError(f"unknown baseline codes: {sorted(unknown)}")
-    if "M1" in codes:
+    if "M1" in codes and plant is None:
         raise BaselineError(
-            "M1 frees the gate commands and is not solved on this polytope; "
-            "see faircanal.upperbound"
+            "M1 frees the gate commands, so it needs the plant the programme "
+            "was built from; pass plant=..."
         )
 
     answers: dict[str, BaselineResult] = {}
@@ -666,4 +714,6 @@ def solve_all(
         answers["B4"] = leximin(programme)
     if "B5" in codes:
         answers["B5"] = min_spread(programme, start=first.z)
+    if "M1" in codes:
+        answers["M1"] = upper_bound(programme, plant)
     return {code: answers[code] for code in CODES if code in answers}

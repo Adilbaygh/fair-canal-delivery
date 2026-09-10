@@ -20,4 +20,19 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-q"
+# The default run is the one used while working, so it has to finish in the
+# time a person will actually wait. Everything that catches a mistake is in
+# it. What is left out is the handful of end-to-end solves that take
+# minutes each - the free-gate upper bound above all, whose programme is a
+# hundred times the size of the ordinary one. Those are the numbers the
+# paper quotes rather than the checks that find errors, and pytest says how
+# many were deselected, so nothing is skipped quietly.
+#
+#   python -m pytest -q            the working run
+#   python -m pytest -q -m ""      everything, before a commit that touches
+#                                  the solvers or the plant
+#   python -m pytest -q -m slow    only the long ones
+addopts = "-q -m 'not slow'"
+markers = [
+    "slow: an end-to-end solve measured in minutes, not seconds",
+]

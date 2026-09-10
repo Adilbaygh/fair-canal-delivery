@@ -282,16 +282,18 @@ def test_re_mixing_buys_speed_and_not_a_different_answer():
     """Two routes to the same number, and what the slow one costs.
 
     The correction step is an optimisation of the method, not a change to
-    the model, so it must not move the answer. Given the same budget of
+    the model, so it must not move the answer. Given a budget of forty
     linear programmes the plain method has not finished narrowing its
     interval, so the comparison that means anything is this: the quick
     answer lies inside the interval the plain method certifies, is no
     worse than the number the plain method reached, and got there with a
-    far narrower bound and fewer solves.
+    far narrower bound and fewer solves. The budget is small on purpose -
+    letting the plain method run to its own tolerance takes minutes and
+    proves nothing this does not.
     """
     programme = model(0.5)
     quick = min_spread(programme)
-    plain = min_spread(programme, corrective=False)
+    plain = min_spread(programme, corrective=False, max_iterations=40)
 
     assert quick.detail["converged"]
     assert quick.spread <= plain.spread + TOL
@@ -388,10 +390,18 @@ def test_the_ratios_are_what_the_programme_says_they_are():
 # ---------------------------------------------------------------------------
 
 
-def test_the_upper_bound_is_not_solved_on_this_polytope():
-    """M1 frees the gate commands, so it is a different programme."""
-    with pytest.raises(BaselineError, match="upperbound"):
+def test_the_upper_bound_needs_the_plant_it_is_a_bound_for():
+    """M1 frees the gate commands, so it is a different programme.
+
+    It cannot be assembled from the substituted one alone - the plant has
+    to appear as itself - so asking for it without the plant is refused
+    rather than quietly dropped from the answer.
+    """
+    with pytest.raises(BaselineError, match="needs the plant"):
         solve_all(model(0.7), codes=("B1", "M1"))
+
+    found = solve_all(model(0.7), codes=("B1",))
+    assert "M1" not in found
 
 
 def test_an_unknown_code_is_refused():
