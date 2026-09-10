@@ -576,3 +576,28 @@ def test_the_law_matches_the_arbiter_while_an_offtake_runs():
     assert early == pytest.approx(optimal_u[50], abs=1e-4), (
         "before the offtake starts the pipeline is empty and cannot matter"
     )
+
+
+def test_a_cached_law_cannot_be_modified_in_place():
+    """The law is memoised, so its arrays must not be writable.
+
+    Extracting one costs seconds for a realistic network, and the same
+    network is asked for over and over - across baselines, scarcity levels
+    and tests. Sharing the result is the point; sharing something a caller
+    can edit would mean the second caller gets whatever the first one did
+    to it.
+    """
+    pools = [haughton_design_pool(i) for i in (1, 2)]
+    first = control_law(pools, LqWeights(), horizon=200)
+    second = control_law(pools, LqWeights(), horizon=200)
+
+    assert first.k_levels == pytest.approx(second.k_levels)
+    for array in (
+        first.k_levels,
+        first.k_history,
+        first.k_preview,
+        first.k_disturbance_history,
+    ):
+        assert not array.flags.writeable
+        with pytest.raises(ValueError):
+            array[0, 0] = 0.0

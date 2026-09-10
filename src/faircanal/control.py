@@ -38,6 +38,7 @@ rather than remembered.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import lru_cache
 
 import numpy as np
 
@@ -592,7 +593,42 @@ def _history_map(
     return column_map
 
 
+@lru_cache(maxsize=8)
+def _control_law_cached(
+    pools: tuple[PoolParams, ...], weights: LqWeights, horizon: int, lag: int
+) -> LinearControlLaw:
+    """The work behind :func:`control_law`, memoised on its arguments.
+
+    Extracting a law means a pseudo-inverse of a matrix whose size grows
+    with the horizon, so for a five pool network over a six hundred step
+    run it is seconds rather than milliseconds. The same network is asked
+    for repeatedly - across baselines, across scarcity levels, across the
+    test suite - and the law depends only on the network, the weights and
+    the horizon, never on the scenario. So it is computed once.
+
+    The returned arrays are made read-only, because a cached object that a
+    caller can modify in place is a bug waiting for its second caller.
+    """
+    law = _extract_control_law(list(pools), weights, horizon, lag)
+    for array in (law.k_levels, law.k_history, law.k_preview,
+                  law.k_disturbance_history):
+        array.flags.writeable = False
+    return law
+
+
 def control_law(
+    pools: list[PoolParams], weights: LqWeights, horizon: int, lag: int | None = None
+) -> LinearControlLaw:
+    """Extract the optimal control law of problem (4).
+
+    Memoised: see :func:`_control_law_cached`.
+    """
+    if lag is None:
+        lag = max(pool.tau + pool.tau_bar for pool in pools)
+    return _control_law_cached(tuple(pools), weights, horizon, lag)
+
+
+def _extract_control_law(
     pools: list[PoolParams], weights: LqWeights, horizon: int, lag: int | None = None
 ) -> LinearControlLaw:
     """Extract the optimal control law of problem (4).
