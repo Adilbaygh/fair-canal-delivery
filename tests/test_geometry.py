@@ -285,3 +285,132 @@ def test_every_published_resonance_peak_is_reproduced(
     assert resonance_peak_height(pool, depth, velocity) == pytest.approx(
         published, abs=1e-3
     )
+
+
+# ---------------------------------------------------------------------------
+# A second published statement of the same two canals
+# ---------------------------------------------------------------------------
+
+
+def test_the_two_published_geometries_agree():
+    """Both canals, described twice by unrelated authors, eleven years apart.
+
+    The reach lengths, bed widths, side slopes, roughness and bed slopes
+    here were taken from a 2025 paper for one canal and a 2015 paper for
+    the other. Litrico and Fromion published both canals in 2004 in their
+    own Tables 1 and 2. Every number agrees.
+
+    That is what licenses taking Corning's target depths from the 2004
+    paper - the only published statement of them found for this study -
+    without mixing two descriptions of different canals.
+    """
+    from faircanal.geometry import LITRICO_GEOMETRY_SOURCE
+
+    assert "Table 1" in LITRICO_GEOMETRY_SOURCE
+
+    litrico_wm = (
+        (100.0, 1.0, 0.9),
+        (1200.0, 1.0, 0.9),
+        (400.0, 1.0, 0.8),
+        (800.0, 0.8, 0.9),
+        (2000.0, 0.8, 0.9),
+        (1700.0, 0.8, 0.8),
+        (1600.0, 0.6, 0.8),
+        (1700.0, 0.6, 0.8),
+    )
+    litrico_corning = (
+        (7000.0, 7.0, 2.1),
+        (3000.0, 7.0, 2.1),
+        (3000.0, 7.0, 2.1),
+        (4000.0, 6.0, 1.9),
+        (4000.0, 6.0, 1.9),
+        (3000.0, 5.0, 1.7),
+        (2000.0, 5.0, 1.7),
+        (2000.0, 5.0, 1.7),
+    )
+    for pools, published, roughness, slope in (
+        (WM_POOLS, litrico_wm, 0.014, 0.002),
+        (CORNING_POOLS, litrico_corning, 0.02, 1.0e-4),
+    ):
+        for pool, (length, bed_width, target) in zip(pools, published):
+            assert pool.length_m == length, pool.name
+            assert pool.bed_width_m == bed_width, pool.name
+            assert pool.target_level_m == target, pool.name
+            assert pool.side_slope == 1.5, pool.name
+            assert pool.manning_n == roughness, pool.name
+            assert pool.bed_slope == slope, pool.name
+            assert pool.canal_depth_m > pool.target_level_m, pool.name
+
+
+# ---------------------------------------------------------------------------
+# The wave damping
+# ---------------------------------------------------------------------------
+
+
+def test_the_shape_exponent_tends_to_seven_thirds_in_a_wide_channel():
+    """``kappa`` is 7/3 minus a term that vanishes as the banks recede.
+
+    A wide shallow channel is where the Manning exponent takes its textbook
+    value, so this is the one place the formula can be checked against a
+    number nobody had to publish.
+    """
+    from faircanal.geometry import shape_exponent
+
+    values = []
+    for width in (10.0, 100.0, 1000.0, 10000.0):
+        pool = TrapezoidalPool(
+            name=f"wide-{width:g}",
+            length_m=1000.0,
+            bed_width_m=width,
+            side_slope=1.5,
+            canal_depth_m=2.0,
+            manning_n=0.02,
+            bed_slope=1.0e-4,
+        )
+        values.append(shape_exponent(pool, 1.0))
+    assert values == sorted(values)
+    assert values[-1] == pytest.approx(7.0 / 3.0, abs=0.01)
+    assert values[0] < 7.0 / 3.0 - 0.1
+
+
+def test_a_long_enough_pool_reflects_nothing():
+    """The reflection factor goes to one as the round trip gets longer.
+
+    Clemmens et al. say it in words - Eq. (3) is the limit of Eq. (24) as
+    the pool length grows - and this is that sentence as a number.
+    """
+    from faircanal.geometry import reflection_factor, resonance_peak_with_reflections
+
+    base = CORNING_POOLS[0]
+    factors = []
+    for length in (7.0e3, 7.0e4, 7.0e5):
+        pool = TrapezoidalPool(
+            name=f"long-{length:g}",
+            length_m=length,
+            bed_width_m=base.bed_width_m,
+            side_slope=base.side_slope,
+            canal_depth_m=base.canal_depth_m,
+            manning_n=base.manning_n,
+            bed_slope=base.bed_slope,
+            target_level_m=base.target_level_m,
+        )
+        velocity = 11.0 / flow_area(pool, 2.1)
+        factors.append(reflection_factor(pool, 2.1, velocity))
+        assert resonance_peak_with_reflections(
+            pool, 2.1, velocity
+        ) == pytest.approx(
+            resonance_peak_height(pool, 2.1, velocity) * factors[-1], rel=1e-12
+        )
+    assert factors == sorted(factors, reverse=True)
+    assert factors[-1] == pytest.approx(1.0, abs=1e-6)
+    assert all(factor >= 1.0 for factor in factors)
+
+
+def test_a_wave_cannot_travel_upstream_against_supercritical_flow():
+    from faircanal.geometry import wave_decay_rate
+
+    pool = WM_POOLS[0]
+    with pytest.raises(ValueError, match="subcritical"):
+        wave_decay_rate(pool, 0.9, 5.0)
+    with pytest.raises(ValueError, match="zero flow"):
+        wave_decay_rate(pool, 0.9, 0.0)

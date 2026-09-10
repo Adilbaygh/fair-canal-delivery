@@ -35,7 +35,13 @@ WM lateral geometry, flows and the integrator-delay-zero relations:
 Clemmens AJ, Tian X, van Overloop P-J, Litrico X (2015). Integrator Delay
 Zero Model for Design of Upstream Water-Level Controllers. J. Irrig.
 Drain. Eng., paper B4015001,
-doi:10.1061/(ASCE)IR.1943-4774.0000997. Table 1 and Eqs (2), (3), (15).
+doi:10.1061/(ASCE)IR.1943-4774.0000997. Table 1 and Eqs (2), (3), (15),
+and Eqs (24)-(31) for the reflection waves.
+
+Target depths of both canals, and an independent statement of both
+geometries: Litrico X, Fromion V (2004). Simplified Modeling of Irrigation
+Canals for Controller Design. J. Irrig. Drain. Eng. 130(5):373-383,
+doi:10.1061/(ASCE)0733-9437(2004)130:5(373). Tables 1 and 2.
 """
 
 from __future__ import annotations
@@ -70,7 +76,11 @@ __all__ = [
     "backwater_area",
     "resonance_frequency",
     "resonance_peak_height",
+    "wave_decay_rate",
+    "reflection_factor",
+    "resonance_peak_with_reflections",
     "gate_capacity",
+    "LITRICO_GEOMETRY_SOURCE",
 ]
 
 #: Standard gravity [m/s^2].
@@ -252,6 +262,96 @@ def resonance_peak_height(
     return 1.0 / (top_width(pool, depth) * (celerity - velocity))
 
 
+def shape_exponent(pool: TrapezoidalPool, depth: float) -> float:
+    """The friction exponent ``kappa`` of the linearised flow equations.
+
+    Equation (29) of Clemmens et al.: ``7/3 - (4 A)/(3 B P) dP/dy``. The
+    same quantity appears as ``kappa_0`` in Eq. (34) of Litrico and
+    Fromion, written with ``T_0`` in place of ``B``; the two definitions
+    are the same expression, which is one of several places where the two
+    papers can be checked against each other.
+
+    For a trapezoidal channel ``dP/dy = 2 sqrt(1 + m^2)`` with ``m`` the
+    side slope, which is a constant.
+    """
+    area = flow_area(pool, depth)
+    width = top_width(pool, depth)
+    perimeter = wetted_perimeter(pool, depth)
+    dp_dy = 2.0 * math.hypot(1.0, pool.side_slope)
+    return 7.0 / 3.0 - 4.0 * area / (3.0 * width * perimeter) * dp_dy
+
+
+def wave_decay_rate(pool: TrapezoidalPool, depth: float, velocity: float) -> float:
+    """How fast a gravity wave loses height as it travels, per metre.
+
+    Equations (25)-(29) of Clemmens et al.: ``r = r1 + r2``, the sum of the
+    rates for the downstream and the upstream leg, so that a wave that runs
+    the pool and comes back is multiplied by ``exp(-r L)``.
+
+    That single number decides whether a pool oscillates. The paper reports
+    of the steep test canal that its pools "do not experience oscillations,
+    except in the first pool", and this function reproduces that: the first
+    pool keeps about eleven per cent of a wave over a round trip and the
+    rest keep almost none - see
+    ``test_only_the_first_pool_of_the_steep_canal_rings``.
+
+    This is written for uniform flow, which is the condition the source's
+    appendix states for it.
+    """
+    celerity = wave_celerity(pool, depth)
+    if velocity <= 0.0:
+        raise ValueError(f"{pool.name}: the decay rate is undefined at zero flow")
+    if velocity >= celerity:
+        raise ValueError(
+            f"{pool.name}: flow at {velocity} m/s is not subcritical against a "
+            f"celerity of {celerity:.3f} m/s"
+        )
+    down = celerity + velocity  # alpha in the source
+    up = celerity - velocity  # beta in the source
+    gamma = GRAVITY * (1.0 + shape_exponent(pool, depth)) * pool.bed_slope
+    delta = 2.0 * GRAVITY * pool.bed_slope / velocity
+    r1 = (down * delta - gamma) / (down * (down + up))
+    r2 = (up * delta + gamma) / (up * (down + up))
+    return r1 + r2
+
+
+def reflection_factor(pool: TrapezoidalPool, depth: float, velocity: float) -> float:
+    """How much the reflected waves raise the resonance peak, as a ratio.
+
+    Dividing Eq. (31) by Eq. (3) leaves
+
+        (1 + (c+v)/(c-v) exp(-r L)) / (1 - exp(-r L)),
+
+    a dimensionless number that is one when nothing comes back and grows
+    without bound as the damping vanishes. Writing it as a ratio rather
+    than as a peak height is what lets the same amplification be applied to
+    a peak whose base is taken from a different source, which is what
+    :mod:`faircanal.identify` does.
+
+    Reading the source's Eq. (31): the printed numerator and denominator
+    are both perfect squares - ``1 + q^2 e^{-2rL} + 2 q e^{-rL}`` and
+    ``1 + e^{-2rL} - 2 e^{-rL}`` - so the square root of their ratio is
+    exactly the expression above. That is also what makes Eq. (30) a
+    maximum at ``cos(w t) = 1``, which the source states.
+    """
+    decay = math.exp(-wave_decay_rate(pool, depth, velocity) * pool.length_m)
+    celerity = wave_celerity(pool, depth)
+    ratio = (celerity + velocity) / (celerity - velocity)
+    return (1.0 + ratio * decay) / (1.0 - decay)
+
+
+def resonance_peak_with_reflections(
+    pool: TrapezoidalPool, depth: float, velocity: float
+) -> float:
+    """Height of the resonance peak with the reflected waves, [s/m^2].
+
+    Equation (31), assembled as Eq. (3) times :func:`reflection_factor`.
+    """
+    return resonance_peak_height(pool, depth, velocity) * reflection_factor(
+        pool, depth, velocity
+    )
+
+
 def gate_capacity(gate: Gate, head_difference_m: float) -> float:
     """Largest discharge the gate can pass at a given head drop [m^3/s].
 
@@ -273,10 +373,25 @@ def gate_capacity(gate: Gate, head_difference_m: float) -> float:
 # ASCE Test Canal 2 - the Corning canal, California
 # ---------------------------------------------------------------------------
 
+#: Litrico and Fromion publish both ASCE canals independently of the two
+#: sources used above, and every length, bed width, side slope, roughness
+#: and bed slope agrees with them exactly - which is why the target depths
+#: below can be taken from that paper without mixing parameter sets. It is
+#: also the only published statement of Corning's target depths found for
+#: this study; ``test_the_two_published_geometries_agree`` keeps the
+#: agreement from being assumed rather than checked.
+LITRICO_GEOMETRY_SOURCE = (
+    "Litrico X, Fromion V (2004). Simplified Modeling of Irrigation Canals "
+    "for Controller Design. J. Irrig. Drain. Eng. 130(5):373-383, "
+    "doi:10.1061/(ASCE)0733-9437(2004)130:5(373). Table 1 for ASCE test "
+    "canal 1 and Table 2 for ASCE test canal 2, columns X, B and Y_X."
+)
+
 _CORNING_SOURCE = (
     "Bonet E, Yubero MT, Bascompta M, Alfonso P (2025). A Linear Model for "
     "Irrigation Canals Operating in Real Time Applied in ASCE Test Cases. "
-    "Water 17(9):1368, doi:10.3390/w17091368, CC BY. Tables 5 and 6."
+    "Water 17(9):1368, doi:10.3390/w17091368, CC BY. Tables 5 and 6. "
+    "Target depths from " + LITRICO_GEOMETRY_SOURCE
 )
 
 #: Eight reaches, most upstream first, as Table 5 lists them.
@@ -289,18 +404,19 @@ CORNING_POOLS = tuple(
         canal_depth_m=canal_depth,
         manning_n=0.02,
         bed_slope=1.0e-4,
+        target_level_m=target,
         source=_CORNING_SOURCE,
     )
-    for index, (length, bed_width, canal_depth) in enumerate(
+    for index, (length, bed_width, canal_depth, target) in enumerate(
         (
-            (7.0, 7.0, 2.5),
-            (3.0, 7.0, 2.5),
-            (3.0, 7.0, 2.5),
-            (4.0, 6.0, 2.3),
-            (4.0, 6.0, 2.3),
-            (3.0, 5.0, 2.3),
-            (2.0, 5.0, 1.9),
-            (2.0, 5.0, 1.9),
+            (7.0, 7.0, 2.5, 2.1),
+            (3.0, 7.0, 2.5, 2.1),
+            (3.0, 7.0, 2.5, 2.1),
+            (4.0, 6.0, 2.3, 1.9),
+            (4.0, 6.0, 2.3, 1.9),
+            (3.0, 5.0, 2.3, 1.7),
+            (2.0, 5.0, 1.9, 1.7),
+            (2.0, 5.0, 1.9, 1.7),
         ),
         start=1,
     )
