@@ -50,6 +50,8 @@ __all__ = [
     "design_parameters",
     "simulate_first_order",
     "solve_lq_trajectory",
+    "LinearControlLaw",
+    "control_law",
 ]
 
 
@@ -192,6 +194,8 @@ def simulate_first_order(
     u: np.ndarray,
     d_source: np.ndarray,
     y_initial: np.ndarray,
+    u_history: np.ndarray | None = None,
+    d_history: np.ndarray | None = None,
 ) -> np.ndarray:
     """Run the first-order design model the controller is built on.
 
@@ -216,6 +220,13 @@ def simulate_first_order(
         Shape ``(steps, n_pools)``, in the source's sign convention.
     y_initial:
         Level of each pool before the first step.
+    u_history, d_history:
+        What happened before the first step, shape ``(lag, n_pools)`` with
+        row ``k`` holding step ``-(k+1)``. Both default to nothing, which
+        is a network starting from rest. They matter because the controller
+        is a function of the buffered past inputs as much as of the current
+        levels: a law extracted with the history assumed empty is a law for
+        one instant only.
 
     Returns
     -------
@@ -235,28 +246,91 @@ def simulate_first_order(
         raise ValueError(f"y_initial must have shape ({n},), got {y_initial.shape}")
     if any(p.order != 1 for p in pools):
         raise ValueError("the design model is first order; pass first-order pools")
+    for name, history in (("u_history", u_history), ("d_history", d_history)):
+        if history is not None and (history.ndim != 2 or history.shape[1] != n):
+            raise ValueError(f"{name} must have shape (lag, {n}), got {history.shape}")
 
     steps = u.shape[0]
     y = np.empty((steps + 1, n), dtype=float)
     y[0] = y_initial
 
-    def at(signal: np.ndarray, step: int, column: int) -> float:
-        if step < 0:
+    def sample(
+        signal: np.ndarray,
+        history: np.ndarray | None,
+        step: int,
+        column: int,
+    ) -> float:
+        """Value of *signal* at *step*, falling back to *history* before zero.
+
+        The signal and its history are passed together rather than inferred
+        from which array was handed in. An earlier version told them apart
+        by object identity, which quietly broke the moment a caller passed
+        the same zero array as both the input and the disturbance - the
+        disturbance term then read the input history. Nothing raised, the
+        model stayed linear, and the extracted controller was wrong.
+        """
+        if step >= 0:
+            return float(signal[step, column])
+        if history is None:
             return 0.0
-        return float(signal[step, column])
+        index = -step - 1
+        if index >= history.shape[0]:
+            return 0.0
+        return float(history[index, column])
 
     for t in range(steps):
         for i, pool in enumerate(pools):
             inflow_lag = t - pool.tau - pool.tau_bar
             outflow_lag = t - pool.tau_bar
             # Pool 1's downstream gate is held fixed, so its outflow is zero.
-            outflow = at(u, outflow_lag, i - 1) if i >= 1 else 0.0
+            outflow = (
+                sample(u, u_history, outflow_lag, i - 1) if i >= 1 else 0.0
+            )
             y[t + 1, i] = (
                 y[t, i]
-                + pool.b[0] * at(u, inflow_lag, i)
-                - pool.c[0] * (outflow - at(d_source, outflow_lag, i))
+                + pool.b[0] * sample(u, u_history, inflow_lag, i)
+                - pool.c[0]
+                * (outflow - sample(d_source, d_history, outflow_lag, i))
             )
     return y
+
+
+def _impulse_maps(
+    pools: list[PoolParams], steps: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """Unit-pulse responses of the design model, one per input channel.
+
+    The model is time invariant, so the response to a pulse at any step is
+    the response to a pulse at step zero, shifted. Building the response
+    maps from these is ``n`` simulations instead of ``steps * n``, which is
+    the difference between a study that runs in seconds and one that runs
+    in minutes.
+
+    Returns two arrays of shape ``(n, steps + 1, n)``: the level response
+    to a unit inflow pulse, and to a unit disturbance pulse.
+    """
+    n = len(pools)
+    zeros = np.zeros((steps, n))
+    h_u = np.empty((n, steps + 1, n))
+    h_d = np.empty((n, steps + 1, n))
+    for i in range(n):
+        pulse = np.zeros((steps, n))
+        pulse[0, i] = 1.0
+        h_u[i] = simulate_first_order(pools, pulse, zeros, np.zeros(n))
+        h_d[i] = simulate_first_order(pools, zeros, pulse, np.zeros(n))
+    return h_u, h_d
+
+
+def _toeplitz_from_impulse(h: np.ndarray, steps: int, n: int) -> np.ndarray:
+    """Assemble a block lower-triangular response map from pulse responses."""
+    a = np.zeros((steps * n, steps * n))
+    for i in range(n):
+        response = h[i]
+        for t1 in range(steps):
+            span = steps - t1
+            block = response[1 : span + 1]  # y[t1+1 .. steps] from a pulse at t1
+            a[t1 * n :, t1 * n + i] = block.ravel()
+    return a
 
 
 def _response_maps(
@@ -266,38 +340,57 @@ def _response_maps(
 
     The design model is linear, so
 
-        vec(y[1..steps]) = A0 @ y[0] + Au @ vec(u) + Ad @ vec(d),
+        vec(y[1..steps]) = A0 @ y[0] + Au @ vec(u) + Ad @ vec(d).
 
-    and the maps are built by simulating unit responses. That is slower
-    than assembling them in closed form and far easier to check, and it is
-    done once per problem size.
+    ``A0`` is built by simulating unit initial levels; ``Au`` and ``Ad`` are
+    assembled from the pulse responses by time invariance.
+    ``test_the_fast_response_maps_match_the_slow_ones`` checks the shortcut
+    against building every column separately.
     """
     n = len(pools)
-    zeros_u = np.zeros((steps, n))
-    zeros_d = np.zeros((steps, n))
-    baseline = simulate_first_order(pools, zeros_u, zeros_d, np.zeros(n))[1:].ravel()
+    zeros = np.zeros((steps, n))
+    baseline = simulate_first_order(pools, zeros, zeros, np.zeros(n))[1:].ravel()
     assert not baseline.any(), "the design model is not at rest from rest"
 
+    a0 = np.empty((steps * n, n))
+    for i in range(n):
+        y0 = np.zeros(n)
+        y0[i] = 1.0
+        a0[:, i] = simulate_first_order(pools, zeros, zeros, y0)[1:].ravel()
+
+    h_u, h_d = _impulse_maps(pools, steps)
+    return (
+        a0,
+        _toeplitz_from_impulse(h_u, steps, n),
+        _toeplitz_from_impulse(h_d, steps, n),
+    )
+
+
+def _response_maps_by_column(
+    pools: list[PoolParams], steps: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """The same maps, built one column at a time. Reference implementation.
+
+    Kept only so the fast construction has something independent to be
+    checked against; nothing in the study calls it.
+    """
+    n = len(pools)
+    zeros = np.zeros((steps, n))
     rows = steps * n
+
     a0 = np.empty((rows, n))
     for i in range(n):
         y0 = np.zeros(n)
         y0[i] = 1.0
-        a0[:, i] = simulate_first_order(pools, zeros_u, zeros_d, y0)[1:].ravel()
+        a0[:, i] = simulate_first_order(pools, zeros, zeros, y0)[1:].ravel()
 
-    au = np.empty((rows, steps * n))
-    ad = np.empty((rows, steps * n))
-    for column, (t, i) in enumerate(
-        (t, i) for t in range(steps) for i in range(n)
-    ):
+    au = np.empty((rows, rows))
+    ad = np.empty((rows, rows))
+    for column, (t, i) in enumerate((t, i) for t in range(steps) for i in range(n)):
         pulse = np.zeros((steps, n))
         pulse[t, i] = 1.0
-        au[:, column] = simulate_first_order(pools, pulse, zeros_d, np.zeros(n))[
-            1:
-        ].ravel()
-        ad[:, column] = simulate_first_order(pools, zeros_u, pulse, np.zeros(n))[
-            1:
-        ].ravel()
+        au[:, column] = simulate_first_order(pools, pulse, zeros, np.zeros(n))[1:].ravel()
+        ad[:, column] = simulate_first_order(pools, zeros, pulse, np.zeros(n))[1:].ravel()
     return a0, au, ad
 
 
@@ -359,3 +452,153 @@ def solve_lq_trajectory(
         np.sum(u[:, n - 1] ** 2)
     )
     return u, y, cost
+
+
+# ---------------------------------------------------------------------------
+# The control law, extracted from the problem rather than transcribed
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class LinearControlLaw:
+    """The optimal control law of problem (4), as gains.
+
+    The source's Theorem 1 says its algorithm computes the minimiser of
+    problem (4). The minimiser of a linear-quadratic problem is a linear
+    function of what the controller knows, so extracting that function from
+    the problem gives the same law the algorithm implements - without
+    depending on two lines of the published algorithm that are ambiguous as
+    typeset.
+
+    At each step,
+
+        u[t] = k_levels @ y[t]
+             + k_history @ vec(past inputs)
+             + k_preview @ vec(disturbances from t onward)
+
+    where the history rows run backwards from the previous step and the
+    preview runs forward from the current one. ``k_preview`` is the
+    feed-forward the source relies on instead of integral action, so a law
+    with it dropped is a different controller, not a simplified one.
+    """
+
+    k_levels: np.ndarray
+    k_history: np.ndarray
+    k_preview: np.ndarray
+    lag: int
+    horizon: int
+
+    def input_at(
+        self,
+        levels: np.ndarray,
+        history: np.ndarray,
+        preview: np.ndarray,
+    ) -> np.ndarray:
+        """Apply the law once."""
+        n = self.k_levels.shape[0]
+        if levels.shape != (n,):
+            raise ValueError(f"levels must have shape ({n},), got {levels.shape}")
+        if history.shape != (self.lag, n):
+            raise ValueError(
+                f"history must have shape ({self.lag}, {n}), got {history.shape}"
+            )
+        if preview.shape != (self.horizon, n):
+            raise ValueError(
+                f"preview must have shape ({self.horizon}, {n}), got {preview.shape}"
+            )
+        return (
+            self.k_levels @ levels
+            + self.k_history @ history.ravel()
+            + self.k_preview @ preview.ravel()
+        )
+
+
+def _least_squares_blocks(
+    pools: list[PoolParams], weights: LqWeights, steps: int
+) -> tuple[np.ndarray, float]:
+    """The design matrix of problem (4) and the level weight's square root."""
+    n = len(pools)
+    _, au, _ = _response_maps(pools, steps)
+    root_q = float(np.sqrt(weights.q))
+    root_r = float(np.sqrt(weights.r_reservoir))
+
+    selector = np.zeros((steps, steps * n))
+    for step in range(steps):
+        selector[step, step * n + (n - 1)] = root_r
+    return np.vstack([root_q * au, selector]), root_q
+
+
+def _history_map(pools: list[PoolParams], steps: int, lag: int) -> np.ndarray:
+    """Levels at times 1..steps caused by inputs applied before time zero.
+
+    This one cannot be assembled by shifting the impulse response, and the
+    reason is worth stating because the shortcut looks obviously correct.
+
+    An input applied at ``t = -(k+1)`` reaches different pools at different
+    lags: the pool below the gate after its transport delay plus the filter
+    delay, the pool above it after the filter delay alone. Part of its
+    effect has therefore **already happened** by the time the window opens,
+    and that part is sitting inside the level ``y[0]`` the caller supplies.
+    Shifting the impulse response adds it a second time.
+
+    So each column is simulated with the input placed in the history, which
+    applies exactly the part that has not fired yet.
+    ``test_the_history_map_does_not_double_count_the_past`` is what stops the
+    shortcut coming back.
+    """
+    n = len(pools)
+    no_input = np.zeros((steps, n))
+    no_disturbance = np.zeros((steps, n))
+    column_map = np.zeros((steps * n, lag * n))
+    for i in range(n):
+        for k in range(lag):
+            history = np.zeros((lag, n))
+            history[k, i] = 1.0
+            column_map[:, k * n + i] = simulate_first_order(
+                pools,
+                no_input,
+                no_disturbance,
+                np.zeros(n),
+                u_history=history,
+                d_history=np.zeros((lag, n)),
+            )[1:].ravel()
+    return column_map
+
+
+def control_law(
+    pools: list[PoolParams], weights: LqWeights, horizon: int, lag: int | None = None
+) -> LinearControlLaw:
+    """Extract the optimal control law of problem (4).
+
+    One pseudo-inverse of the problem's design matrix gives the map from
+    everything the controller knows to the whole optimal input trajectory;
+    the first step of that trajectory is the law. Doing it this way means
+    the law is optimal by construction rather than by transcription, and
+    the horizon is the only approximation - it stands in for the source's
+    infinite one, and how long it has to be was measured rather than
+    assumed.
+
+    ``lag`` defaults to the longest delay in the network, which is how far
+    back the dynamics can still reach.
+    """
+    n = len(pools)
+    if lag is None:
+        lag = max(pool.tau + pool.tau_bar for pool in pools)
+    if horizon < 1 or lag < 1:
+        raise ValueError("horizon and lag must be positive")
+
+    a0, _, ad = _response_maps(pools, horizon)
+    design, root_q = _least_squares_blocks(pools, weights, horizon)
+    ah = _history_map(pools, horizon, lag)
+
+    rows = horizon * n
+    pseudo = np.linalg.pinv(design)
+    transfer = -root_q * pseudo[:, :rows]
+
+    return LinearControlLaw(
+        k_levels=(transfer @ a0)[:n],
+        k_history=(transfer @ ah)[:n],
+        k_preview=(transfer @ ad)[:n],
+        lag=lag,
+        horizon=horizon,
+    )
