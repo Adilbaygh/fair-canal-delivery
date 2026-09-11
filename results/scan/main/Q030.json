@@ -1,5 +1,8 @@
 {
   "blocks": 8,
+  "bound_method": "highs",
+  "bound_time_limit_s": 300.0,
+  "bound_tolerance": 1e-09,
   "certificate": {
     "binding": [],
     "ceilings": {
@@ -73,23 +76,33 @@
   "variants": {
     "B1": {
       "feasible": false,
+      "status": "infeasible",
       "why": "B1 unchanged order: the solver returned status 2 (The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None))"
     },
     "B2": {
       "feasible": false,
+      "status": "infeasible",
       "why": "B1 unchanged order: the solver returned status 2 (The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None))"
     },
     "B3": {
       "feasible": false,
+      "status": "infeasible",
       "why": "B1 unchanged order: the solver returned status 2 (The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None))"
     },
     "B4": {
       "feasible": false,
+      "status": "infeasible",
       "why": "B1 unchanged order: the solver returned status 2 (The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None))"
     },
     "B5": {
       "feasible": false,
+      "status": "infeasible",
       "why": "B1 unchanged order: the solver returned status 2 (The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None))"
+    },
+    "M1": {
+      "feasible": false,
+      "status": "infeasible",
+      "why": "M1: max-min level: the solver returned status 2 (The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None))"
     }
   }
 }

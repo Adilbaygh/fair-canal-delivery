@@ -1,5 +1,8 @@
 {
   "blocks": 8,
+  "bound_method": "highs",
+  "bound_time_limit_s": 300.0,
+  "bound_tolerance": 1e-09,
   "certificate": {
     "binding": [],
     "ceilings": {
@@ -45,7 +48,7 @@
         "corning-1-user"
       ]
     ],
-    "seconds": 7.247,
+    "seconds": 7.351,
     "shortfalls_m3": {},
     "stage_levels": [
       0.9999999999999999
@@ -93,8 +96,9 @@
         "corning-7-user": 1.0,
         "corning-8-user": 1.0
       },
-      "seconds": 0.784,
+      "seconds": 0.587,
       "spread": 0.0,
+      "status": "solved",
       "total": 8.0,
       "worst": 1.0
     },
@@ -119,8 +123,9 @@
         "corning-7-user": 1.0,
         "corning-8-user": 1.0
       },
-      "seconds": 0.642,
+      "seconds": 0.595,
       "spread": 0.0,
+      "status": "solved",
       "total": 8.0,
       "worst": 1.0
     },
@@ -140,8 +145,9 @@
         "corning-7-user": 1.0,
         "corning-8-user": 1.0
       },
-      "seconds": 0.847,
+      "seconds": 0.859,
       "spread": 2.482534153247273e-16,
+      "status": "solved",
       "total": 8.0,
       "worst": 0.9999999999999998
     },
@@ -180,8 +186,9 @@
         "corning-7-user": 1.0,
         "corning-8-user": 1.0
       },
-      "seconds": 8.105,
+      "seconds": 8.194,
       "spread": 0.0,
+      "status": "solved",
       "total": 8.0,
       "worst": 1.0
     },
@@ -214,10 +221,33 @@
         "corning-7-user": 1.0,
         "corning-8-user": 1.0
       },
-      "seconds": 0.638,
+      "seconds": 0.622,
       "spread": 0.0,
+      "status": "solved",
       "total": 8.0,
       "worst": 1.0
+    },
+    "M1": {
+      "code": "M1",
+      "detail": {
+        "method": "highs",
+        "n_equalities": 3840,
+        "n_vars": 5824,
+        "options": {
+          "disp": false,
+          "dual_feasibility_tolerance": 1e-09,
+          "presolve": true,
+          "primal_feasibility_tolerance": 1e-09,
+          "time_limit": 300.0
+        },
+        "what": "the first lexicographic stage; no vector of fractions"
+      },
+      "feasible": true,
+      "n_programmes": 1,
+      "name": "free gates, an upper bound",
+      "seconds": 6.581,
+      "status": "level only",
+      "worst": 1.0000000000004587
     }
   }
 }

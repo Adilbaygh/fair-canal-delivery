@@ -1,5 +1,8 @@
 {
   "blocks": 8,
+  "bound_method": "highs",
+  "bound_time_limit_s": 300.0,
+  "bound_tolerance": 1e-09,
   "certificate": {
     "binding": [
       {
@@ -68,7 +71,7 @@
         "corning-1-user"
       ]
     ],
-    "seconds": 14.317,
+    "seconds": 14.188,
     "shortfalls_m3": {
       "corning-1-user": 3445.5967990042336,
       "corning-2-user": 3648.278963651549,
@@ -125,8 +128,9 @@
         "corning-7-user": 0.8683883683464073,
         "corning-8-user": 0.9928395131798088
       },
-      "seconds": 1.918,
+      "seconds": 1.83,
       "spread": 0.08391570868303545,
+      "status": "solved",
       "total": 6.677788934333787,
       "worst": 0.6784060477663025
     },
@@ -151,8 +155,9 @@
         "corning-7-user": 1.0,
         "corning-8-user": 1.0
       },
-      "seconds": 0.648,
+      "seconds": 0.613,
       "spread": 0.1395653077255133,
+      "status": "solved",
       "total": 6.763502035616126,
       "worst": 0.5910159361534228
     },
@@ -172,8 +177,9 @@
         "corning-7-user": 1.0,
         "corning-8-user": 0.7950786890299437
       },
-      "seconds": 0.906,
+      "seconds": 0.899,
       "spread": 0.16369767757028988,
+      "status": "solved",
       "total": 7.314290372766225,
       "worst": 0.5192116837362813
     },
@@ -212,8 +218,9 @@
         "corning-7-user": 0.8391401391688028,
         "corning-8-user": 0.8391401391688028
       },
-      "seconds": 13.741,
+      "seconds": 13.287,
       "spread": 4.547385064713012e-06,
+      "status": "solved",
       "total": 6.7131348633504215,
       "worst": 0.8391401391688028
     },
@@ -246,10 +253,33 @@
         "corning-7-user": 0.8220457801971713,
         "corning-8-user": 0.8220457769049863
       },
-      "seconds": 5.747,
+      "seconds": 5.511,
       "spread": 6.233002041765353e-09,
+      "status": "solved",
       "total": 6.5763662837473085,
       "worst": 0.8220457769049863
+    },
+    "M1": {
+      "code": "M1",
+      "detail": {
+        "method": "highs",
+        "n_equalities": 3840,
+        "n_vars": 5824,
+        "options": {
+          "disp": false,
+          "dual_feasibility_tolerance": 1e-09,
+          "presolve": true,
+          "primal_feasibility_tolerance": 1e-09,
+          "time_limit": 300.0
+        },
+        "what": "the first lexicographic stage; no vector of fractions"
+      },
+      "feasible": true,
+      "n_programmes": 1,
+      "name": "free gates, an upper bound",
+      "seconds": 9.443,
+      "status": "level only",
+      "worst": 0.8391411391697602
     }
   }
 }

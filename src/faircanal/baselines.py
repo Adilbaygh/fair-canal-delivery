@@ -88,8 +88,13 @@ from faircanal.config import LP_METHOD, LP_OPTIONS
 from faircanal.leximin import (
     LeximinError,
     RatioProgramme,
+    SolverFailure,
+    SolverLimit,
+    SolverUndecided,
+    max_min_level,
     refine,
     solve_leximin,
+    run_linprog,
     solve_utilitarian,
 )
 from faircanal.plant import CanalPlant
@@ -110,6 +115,7 @@ __all__ = [
     "leximin",
     "min_spread",
     "upper_bound",
+    "upper_bound_level",
     "solve_all",
 ]
 
@@ -230,16 +236,18 @@ def _result(
 
 
 def _linprog(cost, a_ub, b_ub, bounds, a_eq, b_eq, what: str):
-    solution = linprog(
-        c=cost,
-        A_ub=a_ub,
-        b_ub=b_ub,
-        A_eq=a_eq,
-        b_eq=b_eq,
-        bounds=bounds,
-        method=LP_METHOD,
-        options=dict(LP_OPTIONS),
-    )
+    solution, used, kind = run_linprog(cost, a_ub, b_ub, bounds, a_eq, b_eq)
+    if kind is not None:
+        # Neither algorithm decided. Not an infeasible point, and not to be
+        # written down as one - see faircanal.leximin.SolverUndecided.
+        error = kind(
+            f"{what}: neither algorithm decided; {used} returned status "
+            f"{solution.status} ({solution.message.strip()})"
+        )
+        error.status = int(solution.status)
+        error.method = used
+        raise error
+    solution.solver_method = used
     if not solution.success:
         raise BaselineError(
             f"{what}: the solver returned status {solution.status} "
@@ -418,7 +426,12 @@ def leximin(programme: Programme, tie_break: bool = True) -> BaselineResult:
 # ---------------------------------------------------------------------------
 
 
-def upper_bound(programme: Programme, plant: CanalPlant) -> BaselineResult:
+def upper_bound(
+    programme: Programme,
+    plant: CanalPlant,
+    method: str | None = None,
+    options: dict | None = None,
+) -> BaselineResult:
     """M1: what the canal could deliver with a perfect control layer.
 
     Not a competitor and never reported as one. It frees the gate
@@ -431,7 +444,7 @@ def upper_bound(programme: Programme, plant: CanalPlant) -> BaselineResult:
     """
     free = free_gate_programme(programme, plant)
     try:
-        result = solve_leximin(free.ratio)
+        result = solve_leximin(free.ratio, method=method, options=options)
     except LeximinError as error:
         raise BaselineError(f"M1: {error}") from error
 
@@ -449,9 +462,53 @@ def upper_bound(programme: Programme, plant: CanalPlant) -> BaselineResult:
             "accuracy_bound": result.accuracy_bound,
             "n_vars": free.ratio.n_vars,
             "n_equalities": free.ratio.a_eq.shape[0],
+            "method": method or LP_METHOD,
+            "options": dict(options) if options else dict(LP_OPTIONS),
             "controller": "removed; filter and every physical limit kept",
         },
     )
+
+
+def upper_bound_level(
+    programme: Programme,
+    plant: CanalPlant,
+    method: str | None = None,
+    options: dict | None = None,
+) -> dict:
+    """M1 reduced to the one number the paper actually quotes.
+
+    The full bound solves a lexicographic programme: one stage plus a
+    saturation test per user, nine programmes of five thousand variables
+    each. What the paper asks of it is a single quantity - how high the
+    worst-off user could have been if the control layer were perfect - and
+    that is the first stage's level, with the other eight programmes
+    adding only the shape of the vector behind it.
+
+    On a programme this degenerate the difference between one solve and
+    nine is the difference between a result and an afternoon, so this
+    exists. It returns a dictionary and not a ``BaselineResult``, because
+    it has no vector of fractions to put in one, and a result object with
+    an invented vector would be worse than no result object.
+    """
+    free = free_gate_programme(programme, plant)
+    try:
+        level = max_min_level(free.ratio, method=method, options=options)
+    except LeximinError as error:
+        raise BaselineError(f"M1: {error}") from error
+    return {
+        "status": "level only",
+        "code": "M1",
+        "name": _NAMES["M1"],
+        "worst": float(level),
+        "n_programmes": 1,
+        "detail": {
+            "what": "the first lexicographic stage; no vector of fractions",
+            "n_vars": free.ratio.n_vars,
+            "n_equalities": free.ratio.a_eq.shape[0],
+            "method": method or LP_METHOD,
+            "options": dict(options) if options else dict(LP_OPTIONS),
+        },
+    }
 
 
 # ---------------------------------------------------------------------------

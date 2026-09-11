@@ -80,6 +80,7 @@ from faircanal.baselines import (  # noqa: E402
     time_shift,
     unchanged_order,
     upper_bound,
+    upper_bound_level,
     utilitarian,
 )
 from faircanal.certificate import certify  # noqa: E402
@@ -87,7 +88,12 @@ from faircanal.config import DT_PLANT_S  # noqa: E402
 from faircanal.control import control_law  # noqa: E402
 from faircanal.delivery import FilterSpec  # noqa: E402
 from faircanal.geometry import uniform_discharge  # noqa: E402
-from faircanal.leximin import LeximinError, solve_leximin  # noqa: E402
+from faircanal.config import LP_METHOD, LP_OPTIONS  # noqa: E402
+from faircanal.leximin import (  # noqa: E402
+    LeximinError,
+    SolverUndecided,
+    solve_leximin,
+)
 from faircanal.network import corning_cascade  # noqa: E402
 from faircanal.plant import build_plant, horizon_for, response_map  # noqa: E402
 from faircanal.programme import assemble  # noqa: E402
@@ -172,6 +178,7 @@ def plain(value):
 
 def describe(answer, names, seconds: float) -> dict:
     record = {
+        "status": "solved",
         "feasible": True,
         "name": answer.name,
         "ratios": {name: float(value) for name, value in zip(names, answer.ratios)},
@@ -232,6 +239,9 @@ def run_point(
     wanted: tuple[str, ...],
     record: dict,
     overshoot: float,
+    bound_method: str | None = None,
+    bound_options: dict | None = None,
+    bound_level_only: bool = False,
 ) -> dict:
     """Fill in whatever this point is still missing, and say what it did."""
     scenario = one_user_per_gate(
@@ -252,70 +262,222 @@ def run_point(
     record["blocks"] = BLOCKS
     record["horizon_steps"] = programme.steps
 
-    missing = [code for code in wanted if code not in variants]
+    # A variant that stopped on a limit is not done: it has no answer, so a
+    # later run with a longer budget or a different solver has to try again.
+    missing = [
+        code
+        for code in wanted
+        if code not in variants or variants[code].get("status") == "undecided"
+    ]
     if not missing and "certificate" in record:
         print(f"  Q={fraction:>5.0%}  already done", flush=True)
         return record
 
     first = None
+    empty = False      # this polytope is provably empty
+    undecided = False  # the projection came back without a verdict
     if {"B1", "B2", "B5"} & set(missing):
         clock = time.perf_counter()
         try:
             first = unchanged_order(programme)
+        except SolverUndecided as error:
+            # The solver returned without deciding. That is a statement
+            # about one solve and not about the feasible set, so nothing
+            # here may be written down as infeasible.
+            #
+            # Two variants lose their answer and only two: B1, which is
+            # this solve, and B2, which is defined as B1's answer shifted
+            # in time and so has nothing to shift. B3, B4 and B5 are
+            # separate programmes on the same polytope - B5 takes the
+            # projection only as a starting point and does without it -
+            # and they are attempted, because refusing to attempt them
+            # would record five verdicts on the strength of one solve
+            # that produced none.
+            elapsed = time.perf_counter() - clock
+            undecided = True
+            for code in ("B1", "B2"):
+                if code not in missing:
+                    continue
+                variants[code] = {
+                    "status": "undecided",
+                    "feasible": None,
+                    "solver_status": getattr(error, "status", -1),
+                    "why": (
+                        str(error)
+                        if code == "B1"
+                        else "B2 is B1's answer shifted one block early, and "
+                        f"B1 has no answer: {error}"
+                    ),
+                    "seconds": round(elapsed, 3) if code == "B1" else 0.0,
+                }
+            print(
+                f"  Q={fraction:>5.0%}  B1 NOT SOLVED - the solver returned "
+                f"without deciding after {elapsed:.0f}s. This is not "
+                f"infeasibility.",
+                flush=True,
+            )
         except BaselineError as error:
-            # Nothing on this polytope can be solved, so every variant is
-            # infeasible and the certificate is the whole answer.
+            # Nothing on *this* polytope can be solved. Every variant that
+            # lives on it is infeasible, and the certificate is the whole
+            # answer for them.
+            #
+            # M1 is the exception and the distinction is not pedantic: it
+            # frees the gate commands, so it is a different feasible set,
+            # and it can perfectly well have a schedule where this one has
+            # none. Marking it infeasible here would be writing down a
+            # verdict nobody computed - and that verdict would be the
+            # interesting one, because a bound that delivers where the
+            # controller cannot is exactly what the bound is for.
             for code in missing:
-                variants[code] = {"feasible": False, "why": str(error)}
-            print(f"  Q={fraction:>5.0%}  no feasible schedule", flush=True)
+                if code == "M1":
+                    continue
+                variants[code] = {
+                    "status": "infeasible",
+                    "feasible": False,
+                    "why": str(error),
+                }
+            print(
+                f"  Q={fraction:>5.0%}  no feasible schedule on the substituted "
+                f"programme",
+                flush=True,
+            )
             record["certificate"] = describe_certificate(certify(programme, None))
-            return record
-        if "B1" in missing:
+            empty = True
+            if "M1" not in missing:
+                return record
+        if "B1" in missing and not empty and not undecided:
             variants["B1"] = describe(first, names, time.perf_counter() - clock)
             report(fraction, "B1", variants["B1"])
 
     def attempt(code: str, work) -> None:
+        """Solve one variant, and keep the three outcomes apart.
+
+        Solved, infeasible, and "the solver was told to stop" are three
+        different things. The last one is recorded as itself and never as
+        the second: a point marked infeasible is a claim about the canal,
+        and a solver that ran out of time has made no claim at all.
+        """
         clock = time.perf_counter()
         try:
             answer = work()
+        except SolverUndecided as error:
+            elapsed = time.perf_counter() - clock
+            variants[code] = {
+                "status": "undecided",
+                "feasible": None,
+                "solver_status": getattr(error, "status", -1),
+                "why": str(error),
+                "seconds": round(elapsed, 3),
+            }
+            print(
+                f"  Q={fraction:>5.0%}  {code} NOT SOLVED - the solver stopped on "
+                f"a limit after {elapsed:.0f}s. This is not infeasibility.",
+                flush=True,
+            )
+            return
         except (BaselineError, LeximinError) as error:
-            variants[code] = {"feasible": False, "why": str(error)}
+            variants[code] = {"status": "infeasible", "feasible": False, "why": str(error)}
             print(f"  Q={fraction:>5.0%}  {code} infeasible: {error}", flush=True)
             return
         variants[code] = describe(answer, names, time.perf_counter() - clock)
         report(fraction, code, variants[code])
 
-    if "B2" in missing:
+    if "B2" in missing and not empty and not undecided:
         attempt("B2", lambda: time_shift(programme, first))
-    if "B3" in missing:
+    if "B3" in missing and not empty:
         attempt("B3", lambda: utilitarian(programme))
-    if "B4" in missing:
+    if "B4" in missing and not empty:
         attempt("B4", lambda: leximin(programme))
-    if "B5" in missing:
+    if "B5" in missing and not empty:
         attempt("B5", lambda: min_spread(programme, start=first.z if first else None))
     if "M1" in missing:
-        attempt("M1", lambda: upper_bound(programme, plant))
+        if bound_level_only:
+            clock = time.perf_counter()
+            try:
+                entry = upper_bound_level(
+                    programme, plant, method=bound_method, options=bound_options
+                )
+            except SolverUndecided as error:
+                elapsed = time.perf_counter() - clock
+                variants["M1"] = {
+                    "status": "undecided",
+                    "feasible": None,
+                    "solver_status": getattr(error, "status", -1),
+                    "why": str(error),
+                    "seconds": round(elapsed, 3),
+                }
+                print(
+                    f"  Q={fraction:>5.0%}  M1 NOT SOLVED - the solver "
+                    f"returned without deciding after {elapsed:.0f}s. "
+                    f"This is not infeasibility.",
+                    flush=True,
+                )
+            except (BaselineError, LeximinError) as error:
+                variants["M1"] = {
+                    "status": "infeasible", "feasible": False, "why": str(error)
+                }
+                print(f"  Q={fraction:>5.0%}  M1 infeasible: {error}", flush=True)
+            else:
+                entry["seconds"] = round(time.perf_counter() - clock, 3)
+                entry["feasible"] = True
+                variants["M1"] = plain(entry)
+                print(
+                    f"  Q={fraction:>5.0%}  M1  worst {entry['worst']:.4f}  "
+                    f"(level only)  {entry['seconds']:.1f}s",
+                    flush=True,
+                )
+        else:
+            attempt(
+                "M1",
+                lambda: upper_bound(
+                    programme, plant, method=bound_method, options=bound_options
+                ),
+            )
 
     # --- the certificate, and the two-run check on the tie-break ----------
-    if "certificate" not in record:
+    if "certificate" not in record and not empty:
         clock = time.perf_counter()
+        result = None
+        written = True
         try:
             result = solve_leximin(programme.ratio)
+        except SolverUndecided as error:
+            # A certificate is a claim about the canal, and it reads the
+            # same whether the programme has no schedule or the solver
+            # merely failed to find out. Without a verdict there is no
+            # claim to make, so none is written and the point stays
+            # unfinished until some run gets an answer out of it.
+            written = False
+            print(
+                f"  Q={fraction:>5.0%}  certificate NOT WRITTEN - the solver "
+                f"returned without deciding ({error}). This is not "
+                f"infeasibility.",
+                flush=True,
+            )
         except LeximinError:
             result = None
-        certificate = certify(programme, result)
-        record["certificate"] = describe_certificate(certificate)
-        record["certificate"]["seconds"] = round(time.perf_counter() - clock, 3)
-        print(
-            f"  Q={fraction:>5.0%}  certificate  "
-            f"{'filled' if certificate.fulfilled else 'NOT filled'}  "
-            f"{certificate.digest[:12]}",
-            flush=True,
-        )
+        if written:
+            certificate = certify(programme, result)
+            record["certificate"] = describe_certificate(certificate)
+            record["certificate"]["seconds"] = round(time.perf_counter() - clock, 3)
+            print(
+                f"  Q={fraction:>5.0%}  certificate  "
+                f"{'filled' if certificate.fulfilled else 'NOT filled'}  "
+                f"{certificate.digest[:12]}",
+                flush=True,
+            )
 
     if "determinism" not in record and variants.get("B4", {}).get("feasible"):
-        again = leximin(programme)
-        twice = leximin(programme)
+        try:
+            again = leximin(programme)
+            twice = leximin(programme)
+        except SolverUndecided as error:
+            print(
+                f"  Q={fraction:>5.0%}  determinism not measured - the solver "
+                f"returned without deciding ({error})",
+                flush=True,
+            )
+            return record
         record["determinism"] = {
             "l2_between_runs": float(np.linalg.norm(again.z - twice.z)),
             "tie_break_cost": plain(again.detail.get("tie_break_cost")),
@@ -368,14 +530,24 @@ def build_tables(records: list[dict], label: str) -> list[Path]:
             entry = record.get("variants", {}).get(code)
             if entry is None:
                 continue
-            if not entry.get("feasible"):
-                summary.append([percent, code, 0, None, None, None, None, None])
+            status = entry.get("status", "solved" if entry.get("feasible") else "infeasible")
+            if status == "level only":
+                summary.append(
+                    [percent, code, status, entry["worst"], None, None,
+                     entry.get("n_programmes"), entry.get("seconds")]
+                )
+                continue
+            if status != "solved":
+                summary.append(
+                    [percent, code, status, None, None, None, None,
+                     entry.get("seconds")]
+                )
                 continue
             summary.append(
                 [
                     percent,
                     code,
-                    1,
+                    status,
                     entry["worst"],
                     entry["total"],
                     entry["spread"],
@@ -408,7 +580,7 @@ def build_tables(records: list[dict], label: str) -> list[Path]:
     written = [
         (
             tables / f"{label}_summary.csv",
-            ["percent", "code", "feasible", "worst", "total", "spread",
+            ["percent", "code", "status", "worst", "total", "spread",
              "programmes", "seconds"],
             summary,
         ),
@@ -452,6 +624,39 @@ def parse(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--filter-order", type=int, default=FILTER_ORDER)
     parser.add_argument("--cutoff", type=float, default=CUTOFF_RAD_PER_S)
     parser.add_argument("--overshoot", type=float, default=OVERSHOOT)
+    parser.add_argument(
+        "--time-limit", type=float, default=None, metavar="SECONDS",
+        help=(
+            "stop the free-gate bound's solver after this many seconds per "
+            "programme. A stop is recorded as not solved, never as infeasible"
+        ),
+    )
+    parser.add_argument(
+        "--bound-level-only", action="store_true",
+        help=(
+            "solve only the free-gate bound's first lexicographic stage - the "
+            "highest the worst-off user could have been - instead of the whole "
+            "vector. One programme instead of nine, and it is the number the "
+            "paper quotes; the record says which was computed"
+        ),
+    )
+    parser.add_argument(
+        "--bound-tolerance", type=float, default=None, metavar="EPS",
+        help=(
+            "primal and dual feasibility tolerance for the free-gate bound "
+            "only. The frozen 1e-9 is very tight for a programme whose level "
+            "recursion carries values across 240 steps, and a tolerance that "
+            "tight can leave the simplex refining a number nobody reads: the "
+            "fractions are reported to four decimals"
+        ),
+    )
+    parser.add_argument(
+        "--bound-method", default=None, choices=("highs", "highs-ds", "highs-ipm"),
+        help=(
+            "solver for the free-gate bound only; the frozen configuration is "
+            "used for everything else, and whichever is used is recorded"
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -466,6 +671,7 @@ def main(argv: list[str] | None = None) -> int:
 
     changed = [
         f"filter order {args.filter_order}" if args.filter_order != FILTER_ORDER else "",
+        "" if args.bound_tolerance is None else "",  # bound settings are M1-only
         f"cut-off {args.cutoff} rad/s" if args.cutoff != CUTOFF_RAD_PER_S else "",
         f"overshoot {args.overshoot}" if args.overshoot != OVERSHOOT else "",
     ]
@@ -491,10 +697,36 @@ def main(argv: list[str] | None = None) -> int:
         f"{BLOCKS} blocks, {time.perf_counter() - clock:.1f}s",
         flush=True,
     )
+    bound_options = None
+    if args.time_limit is not None or args.bound_tolerance is not None:
+        bound_options = dict(LP_OPTIONS)
+    if args.time_limit is not None:
+        if args.time_limit <= 0.0:
+            print("a time limit must be positive", file=sys.stderr)
+            return 2
+        bound_options["time_limit"] = args.time_limit
+    if args.bound_tolerance is not None:
+        if not 0.0 < args.bound_tolerance < 1.0:
+            print("a tolerance must lie strictly between zero and one", file=sys.stderr)
+            return 2
+        bound_options["primal_feasibility_tolerance"] = args.bound_tolerance
+        bound_options["dual_feasibility_tolerance"] = args.bound_tolerance
+
     print(
-        f"scan: {len(fractions)} points, variants {' '.join(wanted)}\n",
+        f"scan: {len(fractions)} points, variants {' '.join(wanted)}",
         flush=True,
     )
+    if "M1" in wanted and (bound_options or args.bound_method or args.bound_level_only):
+        print(
+            f"  bound solver: {args.bound_method or LP_METHOD}"
+            + (f", {args.time_limit:g}s per programme" if args.time_limit else "")
+            + (f", tolerance {args.bound_tolerance:g}" if args.bound_tolerance else "")
+            + (", first stage only" if args.bound_level_only else "")
+            + "\n  (the frozen configuration still applies to every other "
+              "variant; this is recorded with the results)",
+            flush=True,
+        )
+    print("", flush=True)
 
     out_dir = repo_root() / "results" / "scan" / args.label
     started = time.perf_counter()
@@ -507,12 +739,25 @@ def main(argv: list[str] | None = None) -> int:
             record = json.loads(path.read_text(encoding="utf-8"))
         print(f"Q = {fraction:.0%}", flush=True)
         record = run_point(
-            fraction, network, plant, mapping, limits, wanted, record, args.overshoot
+            fraction,
+            network,
+            plant,
+            mapping,
+            limits,
+            wanted,
+            record,
+            args.overshoot,
+            bound_method=args.bound_method,
+            bound_options=bound_options,
+            bound_level_only=args.bound_level_only,
         )
         record["label"] = args.label
         record["filter_order"] = args.filter_order
         record["cutoff_rad_per_s"] = args.cutoff
         record["overshoot"] = args.overshoot
+        record["bound_method"] = args.bound_method or LP_METHOD
+        record["bound_time_limit_s"] = args.time_limit
+        record["bound_tolerance"] = args.bound_tolerance
         write_json(path, record)
 
     # Tables are rebuilt from every point on disk, not only the ones this

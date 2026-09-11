@@ -64,14 +64,53 @@ from scipy.optimize import linprog
 from faircanal.config import EPS_SAT, LP_METHOD, LP_OPTIONS
 
 __all__ = [
+    "SolverUndecided",
+    "SolverLimit",
+    "SolverFailure",
     "RatioProgramme",
     "TieBreak",
     "LeximinResult",
     "LeximinError",
     "solve_leximin",
+    "max_min_level",
     "refine",
     "solve_utilitarian",
 ]
+
+
+class SolverUndecided(RuntimeError):
+    """The solver came back without deciding anything.
+
+    Deliberately **not** a :class:`LeximinError`. Everything upstream reads
+    a LeximinError as "this programme has no solution" and answers it with
+    an infeasibility certificate. A certificate that says no schedule
+    exists, when the truth is that the solver was told to stop after five
+    minutes or gave up on the arithmetic, is not a weaker result - it is a
+    false one, and it is false about the canal rather than about the
+    software. Keeping the two in separate branches of the exception tree
+    means a caller cannot confuse them by accident; it has to catch this
+    one on purpose.
+
+    Exactly one solver status means infeasible. Every other way of not
+    returning an answer lands here.
+    """
+
+    #: Solver status that produced it, for the record.
+    status: int = -1
+
+
+class SolverLimit(SolverUndecided):
+    """Stopped on a budget: a time or iteration limit. Status 1."""
+
+
+class SolverFailure(SolverUndecided):
+    """Stopped on the arithmetic: unbounded, or numerical trouble.
+
+    Status 3 and status 4. The second of these is the one that matters in
+    practice on a large degenerate programme: the solver has not concluded
+    anything about the feasible set, it has run out of numerical room, and
+    writing that down as "infeasible" would put the blame on the canal.
+    """
 
 
 class LeximinError(RuntimeError):
@@ -214,6 +253,116 @@ class LeximinResult:
 # ---------------------------------------------------------------------------
 
 
+#: The one status that is a statement about the problem rather than the solve.
+_INFEASIBLE_STATUS = 2
+#: Statuses that are statements about the solve: limit, unbounded, numerical.
+_UNDECIDED = {1: SolverLimit, 3: SolverFailure, 4: SolverFailure}
+#: Phrases in which the solver says it did decide, through a status that
+#: says it did not. See :func:`undecided_kind`.
+_DECIDED_IN_MESSAGE = ("primal_status is infeasible", "model_status is infeasible")
+
+
+def undecided_kind(status: int, message: str):
+    """Which exception a solver result deserves, or ``None`` if it decided.
+
+    The status code alone is not enough, and finding that out cost four
+    failing tests. On scipy 1.18 a genuinely infeasible programme can come
+    back as status 4 - "numerical difficulties" - because the wrapper does
+    not recognise the HiGHS status that carried the verdict. The message
+    still carries it: ``model_status is Unknown; primal_status is
+    Infeasible``. So a status that means "did not decide" is only taken at
+    face value when the message does not say otherwise.
+
+    Matching on a message is brittle and is not pretended to be anything
+    else: it is the only place the information exists, it is checked
+    against the exact strings this solver produced, and
+    ``test_a_verdict_hidden_in_the_message_is_still_a_verdict`` holds the
+    behaviour in place if a future version changes the wording.
+
+    The asymmetry is deliberate. Reading a real infeasibility as a solver
+    failure costs a rerun. Reading a solver failure as a real infeasibility
+    puts a false statement about the canal into a certificate. Only the
+    first mistake is affordable, so the phrases that flip the reading are
+    the ones in which the solver says *infeasible* and nothing else.
+    """
+    if status not in _UNDECIDED:
+        return None
+    lowered = (message or "").lower()
+    if any(mark in lowered for mark in _DECIDED_IN_MESSAGE):
+        return None
+    return _UNDECIDED[status]
+
+
+#: The algorithm asked when the first one comes back without a verdict.
+#:
+#: "The solver did not decide" is a statement about an algorithm and not
+#: about a programme, so it is worth asking a second algorithm before
+#: writing it down. Which second one is not a guess. Measured on the
+#: points where the default stopped, one programme at a time, same
+#: programme to each:
+#:
+#:     Q     dual simplex          interior point
+#:     38%   infeasible  0.5s      infeasible  1.8s
+#:     36%   no verdict 18.9s      infeasible  2.1s
+#:     35%   no verdict 52.1s      infeasible  2.0s
+#:     34%   infeasible  0.6s      infeasible  2.0s
+#:     32%   no verdict  7.3s      infeasible  2.1s
+#:
+#: The interior point method reached a verdict every time, in about two
+#: seconds, and agreed with the simplex wherever the simplex had one. The
+#: simplex's failures are not monotone in scarcity - 38% decides, 36% does
+#: not, 34% decides, 32% does not - which is the signature of degeneracy
+#: in the pivoting and not of anything in the canal.
+#:
+#: The fallback fires only where the first algorithm produced no answer,
+#: so it cannot change a number that already exists. Which algorithm
+#: produced a result is recorded with it.
+FALLBACK_METHOD = "highs-ipm"
+
+
+def run_linprog(
+    cost,
+    a_ub,
+    b_ub,
+    bounds,
+    a_eq=None,
+    b_eq=None,
+    method: str | None = None,
+    options: dict | None = None,
+):
+    """Solve one LP, asking a second algorithm if the first will not decide.
+
+    Returns the solver result together with the method that produced it,
+    so that a caller can record which algorithm answered rather than
+    leaving it to be inferred from the configuration.
+
+    The three modules that solve linear programmes all come through here,
+    because the reading of a solver's answer has been wrong four times and
+    the cure each time was to have one place where it is read rather than
+    three places that drift.
+    """
+    first = LP_METHOD if method is None else method
+    settings = dict(LP_OPTIONS) if options is None else dict(options)
+    result = linprog(
+        c=cost, A_ub=a_ub, b_ub=b_ub, A_eq=a_eq, b_eq=b_eq,
+        bounds=bounds, method=first, options=settings,
+    )
+    kind = undecided_kind(result.status, result.message)
+    if kind is None or first == FALLBACK_METHOD:
+        return result, first, kind
+
+    again = linprog(
+        c=cost, A_ub=a_ub, b_ub=b_ub, A_eq=a_eq, b_eq=b_eq,
+        bounds=bounds, method=FALLBACK_METHOD, options=settings,
+    )
+    second = undecided_kind(again.status, again.message)
+    if second is None:
+        return again, FALLBACK_METHOD, None
+    # Neither decided. The first algorithm's reading is kept, because it is
+    # the configured one and its exception says what was actually asked.
+    return result, first, kind
+
+
 def _solve(
     cost: np.ndarray,
     a_ub: sparse.csr_matrix,
@@ -222,18 +371,31 @@ def _solve(
     a_eq: sparse.csr_matrix | None,
     b_eq: np.ndarray | None,
     what: str,
+    method: str | None = None,
+    options: dict | None = None,
 ):
-    """Solve one LP with the frozen settings, or say why it could not be."""
-    result = linprog(
-        c=cost,
-        A_ub=a_ub,
-        b_ub=b_ub,
-        A_eq=a_eq,
-        b_eq=b_eq,
-        bounds=bounds,
-        method=LP_METHOD,
-        options=dict(LP_OPTIONS),
+    """Solve one LP with the frozen settings, or say why it could not be.
+
+    ``method`` and ``options`` default to the frozen configuration and are
+    there for the one programme that needs different ones - the free-gate
+    bound, whose matrix is a hundred times the size and degenerate enough
+    that the settings which serve every other programme can leave the
+    simplex grinding. Whatever is used is reported with the result rather
+    than left to be inferred.
+    """
+    result, used, kind = run_linprog(
+        cost, a_ub, b_ub, bounds, a_eq, b_eq, method=method, options=options
     )
+    if kind is not None:
+        error = kind(
+            f"{what}: neither algorithm decided; {used} returned status "
+            f"{result.status} ({result.message.strip()}). This is not "
+            f"infeasibility and must not be reported as any."
+        )
+        error.status = int(result.status)
+        error.method = used
+        raise error
+    result.solver_method = used
     if not result.success:
         raise LeximinError(
             f"{what}: the solver returned status {result.status} "
@@ -333,7 +495,10 @@ def _saturation_programme(
 
 
 def solve_leximin(
-    programme: RatioProgramme, eps_sat: float = EPS_SAT
+    programme: RatioProgramme,
+    eps_sat: float = EPS_SAT,
+    method: str | None = None,
+    options: dict | None = None,
 ) -> LeximinResult:
     """Lexicographically maximise the vector of weighted fractions.
 
@@ -361,7 +526,12 @@ def solve_leximin(
                 "more stages than users; the staged procedure is not terminating"
             )
 
-        stage = _solve(*_stage_programme(programme, active, locked), what="stage")
+        stage = _solve(
+            *_stage_programme(programme, active, locked),
+            what="stage",
+            method=method,
+            options=options,
+        )
         solved += 1
         last_stage_result = stage
         level = float(stage.x[-1])
@@ -371,7 +541,10 @@ def solve_leximin(
         saturated: list[int] = []
         for user in active:  # index order, never set order
             probe = _solve(
-                *_saturation_programme(programme, user, floors), what="saturation test"
+                *_saturation_programme(programme, user, floors),
+                what="saturation test",
+                method=method,
+                options=options,
             )
             solved += 1
             reachable = -float(probe.fun)
@@ -404,8 +577,41 @@ def solve_leximin(
     )
 
 
+def max_min_level(
+    programme: RatioProgramme,
+    method: str | None = None,
+    options: dict | None = None,
+) -> float:
+    """The highest level every user can reach at once: one programme, no more.
+
+    This is the first lexicographic stage and nothing after it. The full
+    procedure needs one stage plus one saturation test per user, so nine
+    programmes here where this needs one, and for the question "how high
+    could the worst-off user have been" the other eight say nothing new:
+    the answer is the first stage's level by construction.
+
+    It is offered separately rather than as a flag on
+    :func:`solve_leximin` because a partial lexicographic answer that looks
+    like a whole one is exactly the sort of thing that ends up quoted as a
+    whole one. This returns a number, not a schedule, so it cannot be
+    mistaken for the vector of fractions.
+    """
+    active = list(range(programme.n_users))
+    stage = _solve(
+        *_stage_programme(programme, active, {}),
+        what="max-min level",
+        method=method,
+        options=options,
+    )
+    return float(stage.x[-1])
+
+
 def refine(
-    programme: RatioProgramme, result: LeximinResult, tie_break: TieBreak
+    programme: RatioProgramme,
+    result: LeximinResult,
+    tie_break: TieBreak,
+    method: str | None = None,
+    options: dict | None = None,
 ) -> LeximinResult:
     """Pick one lexicographically optimal solution by a secondary cost.
 
@@ -435,7 +641,15 @@ def refine(
 
     bounds = (*programme.bounds, *tie_break.bounds_extra)
     solution = _solve(
-        tie_break.cost, a_ub, b_ub, bounds, a_eq, b_eq, what="tie-break stage"
+        tie_break.cost,
+        a_ub,
+        b_ub,
+        bounds,
+        a_eq,
+        b_eq,
+        what="tie-break stage",
+        method=method,
+        options=options,
     )
 
     z = np.asarray(solution.x[:n], dtype=float)

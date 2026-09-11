@@ -90,7 +90,7 @@ from scipy import sparse
 from scipy.optimize import linprog
 
 from faircanal.config import LP_METHOD, LP_OPTIONS
-from faircanal.leximin import LeximinResult
+from faircanal.leximin import LeximinResult, run_linprog
 from faircanal.programme import Programme
 
 __all__ = [
@@ -298,9 +298,18 @@ def families(programme: Programme) -> tuple[Family, ...]:
 
 
 def _solve(cost, a_ub, b_ub, bounds, what):
-    solution = linprog(
-        cost, A_ub=a_ub, b_ub=b_ub, bounds=bounds, method=LP_METHOD, options=dict(LP_OPTIONS)
-    )
+    solution, used, kind = run_linprog(cost, a_ub, b_ub, bounds)
+    if kind is not None:
+        # Not a verdict. A certificate is a statement about the canal; one
+        # built on a solver that did not decide is a statement about
+        # nothing - see faircanal.leximin.SolverUndecided.
+        error = kind(
+            f"{what}: neither algorithm decided; {used} returned status "
+            f"{solution.status}: {solution.message}"
+        )
+        error.status = int(solution.status)
+        error.method = used
+        raise error
     if not solution.success:
         raise CertificateError(f"{what}: {solution.message}")
     return solution

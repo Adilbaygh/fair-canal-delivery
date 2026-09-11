@@ -18,7 +18,12 @@ import numpy as np
 import pytest
 from scipy import sparse
 
+from faircanal.config import LP_METHOD
 from faircanal.leximin import (
+    SolverFailure,
+    SolverLimit,
+    SolverUndecided,
+    undecided_kind,
     LeximinError,
     RatioProgramme,
     TieBreak,
@@ -364,3 +369,286 @@ def test_a_mis_shaped_ratio_matrix_is_refused():
             names=programme.names,
             bounds=programme.bounds,
         )
+
+
+# ---------------------------------------------------------------------------
+# A limit is not a verdict
+# ---------------------------------------------------------------------------
+
+
+def test_the_two_failures_cannot_be_caught_by_accident():
+    """The distinction a two-hour stall taught us to make explicit.
+
+    Everything upstream answers a LeximinError with an infeasibility
+    certificate - "no schedule exists on these terms, however the water is
+    shared". If a solver that was told to stop after five minutes raised
+    that same exception, that sentence would be written about a canal
+    nobody asked about. So the limit has its own exception, and it is
+    deliberately outside the LeximinError branch of the tree: catching it
+    has to be done on purpose.
+
+    A future refactor that made one a subclass of the other would turn
+    every timeout into a claim about the canal, and nothing else in the
+    suite would notice. This notices.
+    """
+    assert not issubclass(SolverUndecided, LeximinError)
+    assert not issubclass(LeximinError, SolverUndecided)
+    assert issubclass(SolverLimit, SolverUndecided)
+    assert issubclass(SolverFailure, SolverUndecided)
+
+
+def test_a_solver_that_stops_on_a_limit_raises_the_limit_not_the_error(monkeypatch):
+    """Status one is a limit, and it is mapped to the exception that says so.
+
+    Driven through a stand-in rather than a real timeout, because a real
+    one depends on how fast the machine is, and a test that passes on a
+    slow machine and not a fast one is not a test.
+    """
+    from scipy.optimize import OptimizeResult
+
+    from faircanal import leximin as module
+
+    def stopped(*args, **kwargs):
+        return OptimizeResult(
+            x=None, fun=None, success=False, status=1,
+            message="Time limit reached", nit=0,
+        )
+
+    monkeypatch.setattr(module, "linprog", stopped)
+    with pytest.raises(SolverLimit, match="not infeasibility"):
+        solve_leximin(sharing_programme([1.0, 1.0], capacity=1.0))
+
+
+@pytest.mark.parametrize(
+    "status, expected",
+    [(1, SolverLimit), (3, SolverFailure), (4, SolverFailure)],
+)
+def test_only_one_status_means_infeasible(monkeypatch, status, expected):
+    """The mistake that got through the first guard, closed for good.
+
+    The first version of this guard caught the time limit and nothing
+    else, so when the solver came back with status four - numerical
+    trouble on a large degenerate programme - the run wrote down
+    "infeasible" for three scan points. Status four is the solver saying
+    it ran out of arithmetic, not the canal saying it has no schedule.
+
+    Exactly one status, two, is a statement about the problem. Every other
+    way of not returning an answer is a statement about the solve, and
+    each of them is checked here by name.
+    """
+    from scipy.optimize import OptimizeResult
+
+    from faircanal import leximin as module
+
+    def undecided(*args, **kwargs):
+        return OptimizeResult(
+            x=None, fun=None, success=False, status=status,
+            message=f"stand-in for status {status}", nit=0,
+        )
+
+    monkeypatch.setattr(module, "linprog", undecided)
+    with pytest.raises(expected) as raised:
+        solve_leximin(sharing_programme([1.0, 1.0], capacity=1.0))
+    assert raised.value.status == status
+    assert not isinstance(raised.value, LeximinError)
+
+
+def test_an_infeasible_programme_is_still_an_infeasible_programme(monkeypatch):
+    """The other half: status two must keep meaning what it means."""
+    from scipy.optimize import OptimizeResult
+
+    from faircanal import leximin as module
+
+    def infeasible(*args, **kwargs):
+        return OptimizeResult(
+            x=None, fun=None, success=False, status=2,
+            message="The problem is infeasible.", nit=0,
+        )
+
+    monkeypatch.setattr(module, "linprog", infeasible)
+    with pytest.raises(LeximinError):
+        solve_leximin(sharing_programme([1.0, 1.0], capacity=1.0))
+
+
+def test_a_time_limit_can_be_asked_for_without_changing_the_answer():
+    """The override is additive: same programme, same fractions."""
+    programme = sharing_programme([1.0, 1.0, 1.0], capacity=2.0)
+    frozen = solve_leximin(programme)
+    generous = solve_leximin(programme, options={"time_limit": 600.0})
+    assert np.allclose(frozen.ratios, generous.ratios)
+
+
+def test_a_verdict_hidden_in_the_message_is_still_a_verdict():
+    """The scipy wrapper can hide an answer inside a status that denies one.
+
+    On scipy 1.18 a genuinely infeasible programme comes back as status 4,
+    "numerical difficulties", because the wrapper does not recognise the
+    HiGHS status that carried the verdict. The verdict is still in the
+    message: ``model_status is Unknown; primal_status is Infeasible``.
+    Reading only the code turned four real infeasibilities into "the
+    solver gave up", which is how this test came to exist.
+
+    The exact strings this solver produced are pinned here, so a future
+    version that reworded them fails loudly instead of quietly changing
+    what the study reports.
+    """
+    hidden = (
+        "The HiGHS status code was not recognized. (HiGHS Status 15: "
+        "model_status is Unknown; primal_status is Infeasible)"
+    )
+    assert undecided_kind(4, hidden) is None
+
+    # And the ones that really are the solver giving up stay that way.
+    assert undecided_kind(4, "(HiGHS Status 4: Solve error)") is SolverFailure
+    assert undecided_kind(4, "(HiGHS Status 0: Not Set)") is SolverFailure
+    assert undecided_kind(1, "Time limit reached") is SolverLimit
+    assert undecided_kind(3, "The problem is unbounded.") is SolverFailure
+
+    # Status two never needed interpreting and still does not.
+    assert undecided_kind(2, "The problem is infeasible.") is None
+    assert undecided_kind(0, "Optimization terminated successfully.") is None
+
+
+def test_the_reading_errs_towards_rerunning_rather_than_accusing_the_canal():
+    """Which way the doubt falls, stated as a test.
+
+    Reading a real infeasibility as a solver failure costs a rerun.
+    Reading a solver failure as a real infeasibility puts a false
+    statement about the canal into a certificate. So only a message that
+    says infeasible in as many words flips a non-deciding status, and
+    anything vaguer stays undecided.
+    """
+    for vague in ("model_status is Unknown", "primal_status is None", ""):
+        assert undecided_kind(4, vague) is SolverFailure
+
+
+# ---------------------------------------------------------------------------
+# Asking a second algorithm before recording that nobody decided
+# ---------------------------------------------------------------------------
+
+
+def _fake_linprog(answers):
+    """A stand-in solver whose answer depends on which algorithm is asked.
+
+    Driven through a stand-in for the same reason as the limit above: the
+    real programme that separates these two algorithms takes fifty
+    seconds to fail on one machine and half a second to succeed on
+    another, and a test that depends on which machine it runs on is not
+    a test. The behaviour being pinned is the dispatch, not the pivoting.
+    """
+    from scipy.optimize import OptimizeResult
+
+    asked = []
+
+    def call(*args, method=None, **kwargs):
+        asked.append(method)
+        status, message = answers[method]
+        return OptimizeResult(
+            x=np.zeros(4), fun=0.0, success=(status == 0), status=status,
+            message=message, nit=0,
+            ineqlin=OptimizeResult(marginals=np.zeros(1)),
+            eqlin=OptimizeResult(marginals=np.zeros(0)),
+        )
+
+    call.asked = asked
+    return call
+
+
+def test_a_second_algorithm_is_asked_before_recording_that_nobody_decided(monkeypatch):
+    """The measurement this exists for, as a rule.
+
+    "The solver did not decide" is a statement about an algorithm. Where
+    the simplex stalled on these programmes the interior point method
+    reached a verdict every time, so it is asked before the absence of a
+    verdict is written down.
+    """
+    from faircanal import leximin as module
+
+    fake = _fake_linprog({
+        LP_METHOD: (4, "(HiGHS Status 0: Not Set)"),
+        module.FALLBACK_METHOD: (2, "The problem is infeasible."),
+    })
+    monkeypatch.setattr(module, "linprog", fake)
+
+    result, used, kind = module.run_linprog(
+        np.zeros(4), sparse.csr_matrix((1, 4)), np.zeros(1), ((None, None),) * 4
+    )
+    assert fake.asked == [LP_METHOD, module.FALLBACK_METHOD]
+    assert used == module.FALLBACK_METHOD
+    assert kind is None
+    assert result.status == 2
+
+
+def test_the_second_algorithm_is_not_asked_when_the_first_one_answers(monkeypatch):
+    """It can never change a number that already exists.
+
+    That is the whole reason this is safe to add to a study whose results
+    are already measured: the fallback fires only where the first
+    algorithm produced no answer at all.
+    """
+    from faircanal import leximin as module
+
+    for status, message in ((0, "Optimization terminated successfully."),
+                            (2, "The problem is infeasible.")):
+        fake = _fake_linprog({LP_METHOD: (status, message)})
+        monkeypatch.setattr(module, "linprog", fake)
+        _, used, kind = module.run_linprog(
+            np.zeros(4), sparse.csr_matrix((1, 4)), np.zeros(1), ((None, None),) * 4
+        )
+        assert fake.asked == [LP_METHOD]
+        assert used == LP_METHOD
+        assert kind is None
+
+
+def test_when_neither_algorithm_decides_the_answer_is_still_undecided(monkeypatch):
+    """Two silences are not a verdict."""
+    from faircanal import leximin as module
+
+    fake = _fake_linprog({
+        LP_METHOD: (4, "(HiGHS Status 0: Not Set)"),
+        module.FALLBACK_METHOD: (1, "Time limit reached"),
+    })
+    monkeypatch.setattr(module, "linprog", fake)
+    with pytest.raises(SolverFailure, match="neither algorithm decided"):
+        solve_leximin(sharing_programme([1.0, 1.0], capacity=1.0))
+    assert fake.asked == [LP_METHOD, module.FALLBACK_METHOD]
+
+
+def test_the_fallback_is_not_asked_twice_when_it_is_the_one_configured(monkeypatch):
+    from faircanal import leximin as module
+
+    fake = _fake_linprog({module.FALLBACK_METHOD: (4, "(HiGHS Status 0: Not Set)")})
+    monkeypatch.setattr(module, "linprog", fake)
+    _, used, kind = module.run_linprog(
+        np.zeros(4), sparse.csr_matrix((1, 4)), np.zeros(1), ((None, None),) * 4,
+        method=module.FALLBACK_METHOD,
+    )
+    assert fake.asked == [module.FALLBACK_METHOD]
+    assert kind is SolverFailure
+
+
+def test_which_algorithm_answered_is_recorded_and_not_left_to_be_inferred(monkeypatch):
+    """A result that needed the fallback says so, on the result itself."""
+    from faircanal import leximin as module
+
+    fake = _fake_linprog({
+        LP_METHOD: (4, "(HiGHS Status 0: Not Set)"),
+        module.FALLBACK_METHOD: (0, "Optimization terminated successfully."),
+    })
+    monkeypatch.setattr(module, "linprog", fake)
+    solution = module._solve(
+        np.zeros(4), sparse.csr_matrix((1, 4)), np.zeros(1), ((None, None),) * 4,
+        None, None, "a programme that needed the second algorithm",
+    )
+    assert solution.solver_method == module.FALLBACK_METHOD
+
+
+def test_the_two_algorithms_agree_where_both_decide():
+    """On a real programme, not a stand-in.
+
+    The fallback would be worthless if it answered a different question.
+    """
+    programme = sharing_programme([1.0, 2.0, 3.0], capacity=3.0)
+    first = solve_leximin(programme)
+    second = solve_leximin(programme, method="highs-ipm")
+    assert np.allclose(first.ratios, second.ratios, atol=1.0e-7)
