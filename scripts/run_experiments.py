@@ -84,9 +84,9 @@ from faircanal.baselines import (  # noqa: E402
     utilitarian,
 )
 from faircanal.certificate import certify  # noqa: E402
-from faircanal.config import DT_PLANT_S  # noqa: E402
+from faircanal.config import DT_PLANT_S, SETTLE_MARGIN_STEPS  # noqa: E402
 from faircanal.control import control_law  # noqa: E402
-from faircanal.delivery import FilterSpec  # noqa: E402
+from faircanal.delivery import FilterSpec, memory_steps  # noqa: E402
 from faircanal.geometry import uniform_discharge  # noqa: E402
 from faircanal.config import LP_METHOD, LP_OPTIONS  # noqa: E402
 from faircanal.leximin import (  # noqa: E402
@@ -142,17 +142,45 @@ def make_limits(network) -> Limits:
     )
 
 
-def build(order: int, cutoff: float):
-    """The plant and its response map: the expensive part, done once."""
+def build(order: int, cutoff: float, margin: int | None = None):
+    """The plant and its response map: the expensive part, done once.
+
+    ``margin`` is the settling tail after the last order block, and it is
+    not a free parameter: the filter's memory sets a floor under it, and
+    a run whose margin is below that floor loses part of the last block's
+    water off the end of the horizon. The frozen value covers the filter
+    the study was pre-registered with.
+
+    It has to be adjustable all the same, because the sensitivity runs
+    change the filter. At a cut-off of one thousandth of a radian a
+    second the memory is 193 steps against a frozen margin of 120, so
+    that run cannot be performed at all without a longer tail - and the
+    honest way to lengthen it is to say so on the command line and have
+    it recorded with the results, rather than to leave the hypothesis
+    untested or, worse, to weaken the check that caught it.
+    """
     spec = FilterSpec(
         order=order, cutoff_rad_per_s=cutoff, sample_time_s=DT_PLANT_S
     )
+    # Before anything expensive: the filter alone decides whether this run
+    # is possible, and it costs nothing to ask. Building the canal first
+    # would spend ten seconds to arrive at the same refusal.
+    needed = memory_steps(spec)
+    if margin is None:
+        margin = SETTLE_MARGIN_STEPS
+    if margin < needed:
+        raise SystemExit(
+            f"this filter remembers for {needed} steps and the settling margin "
+            f"is {margin}. Pass --margin {needed} or more; the run would "
+            f"otherwise lose the last block's water off the end of the horizon."
+        )
     network = corning_cascade()
     plant = build_plant(network, spec)
-    steps = horizon_for(BLOCKS)
+    steps = horizon_for(BLOCKS, margin=margin)
     mapping = response_map(
         plant,
         BLOCKS,
+        margin=margin,
         law=control_law(list(plant.design_models), plant.weights, horizon=steps),
     )
     return network, plant, mapping
@@ -239,6 +267,7 @@ def run_point(
     wanted: tuple[str, ...],
     record: dict,
     overshoot: float,
+    settle_margin: int = SETTLE_MARGIN_STEPS,
     bound_method: str | None = None,
     bound_options: dict | None = None,
     bound_level_only: bool = False,
@@ -251,6 +280,7 @@ def run_point(
         source_discharge_m3_s=fraction * network.aggregate_demand,
         lead_blocks=LEAD_BLOCKS,
         overshoot=overshoot,
+        settle_margin=settle_margin,
     )
     programme = assemble(scenario, mapping)
     names = programme.ratio.names
@@ -657,6 +687,15 @@ def parse(argv: list[str] | None = None) -> argparse.Namespace:
             "used for everything else, and whichever is used is recorded"
         ),
     )
+    parser.add_argument(
+        "--margin", type=int, default=None, metavar="STEPS",
+        help=(
+            "settling steps after the last order block (default: the frozen "
+            "120). A filter whose memory is longer than the margin cannot be "
+            "run at all, so a sensitivity run that lowers the cut-off needs "
+            "this raised; the value used is recorded with the results"
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -690,7 +729,7 @@ def main(argv: list[str] | None = None) -> int:
         flush=True,
     )
     clock = time.perf_counter()
-    network, plant, mapping = build(args.filter_order, args.cutoff)
+    network, plant, mapping = build(args.filter_order, args.cutoff, args.margin)
     limits = make_limits(network)
     print(
         f"  {network.size} reaches, {mapping.steps} steps, "
@@ -748,6 +787,7 @@ def main(argv: list[str] | None = None) -> int:
             record,
             args.overshoot,
             bound_method=args.bound_method,
+            settle_margin=args.margin or SETTLE_MARGIN_STEPS,
             bound_options=bound_options,
             bound_level_only=args.bound_level_only,
         )
@@ -758,6 +798,7 @@ def main(argv: list[str] | None = None) -> int:
         record["bound_method"] = args.bound_method or LP_METHOD
         record["bound_time_limit_s"] = args.time_limit
         record["bound_tolerance"] = args.bound_tolerance
+        record["settle_margin_steps"] = args.margin or SETTLE_MARGIN_STEPS
         write_json(path, record)
 
     # Tables are rebuilt from every point on disk, not only the ones this

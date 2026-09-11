@@ -70,7 +70,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from faircanal.config import D_MIN_M3, DT_PLANT_S, R_CAP, STEPS_PER_BLOCK
+from faircanal.config import (
+    D_MIN_M3,
+    DT_PLANT_S,
+    R_CAP,
+    SETTLE_MARGIN_STEPS,
+    STEPS_PER_BLOCK,
+)
 from faircanal.network import Network
 
 __all__ = [
@@ -240,6 +246,12 @@ class Scenario:
     ratio_cap: float = R_CAP
     steps_per_block: int = STEPS_PER_BLOCK
     dt_s: float = DT_PLANT_S
+    #: Settling steps after the last order block. The floor under it is the
+    #: filter's memory, so it belongs to the scenario and not to the plant:
+    #: a response map and a scenario that disagree about the horizon cannot
+    #: be assembled into one programme, and lowering the filter's cut-off
+    #: lengthens the memory past the frozen value.
+    settle_margin: int = SETTLE_MARGIN_STEPS
     excluded: tuple[str, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
@@ -307,7 +319,7 @@ class Scenario:
     def horizon(self) -> int:
         from faircanal.plant import horizon_for
 
-        return horizon_for(self.blocks, self.steps_per_block)
+        return horizon_for(self.blocks, self.steps_per_block, self.settle_margin)
 
     @property
     def aggregate_demand_m3(self) -> float:
@@ -375,6 +387,7 @@ def one_user_per_gate(
     overshoot: float = 0.0,
     steps_per_block: int = STEPS_PER_BLOCK,
     dt_s: float = DT_PLANT_S,
+    settle_margin: int = SETTLE_MARGIN_STEPS,
     name: str = "one-per-gate",
 ) -> Scenario:
     """The simplest scenario the published data supports: one user per gate.
@@ -406,7 +419,7 @@ def one_user_per_gate(
     """
     from faircanal.plant import horizon_for
 
-    horizon = horizon_for(blocks, steps_per_block)
+    horizon = horizon_for(blocks, steps_per_block, settle_margin)
     lead = lead_blocks * steps_per_block
     if window is None:
         window = (lead, horizon - 1)
@@ -436,4 +449,5 @@ def one_user_per_gate(
         source_nominal_until=lead,
         steps_per_block=steps_per_block,
         dt_s=dt_s,
+        settle_margin=settle_margin,
     )

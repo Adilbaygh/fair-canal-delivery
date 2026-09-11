@@ -374,3 +374,58 @@ def test_the_two_undecided_exceptions_are_one_family(scan):
     assert issubclass(SolverLimit, SolverUndecided)
     assert issubclass(SolverFailure, SolverUndecided)
     assert not issubclass(SolverUndecided, (BaselineError, LeximinError))
+
+
+# ---------------------------------------------------------------------------
+# A run that cannot be performed says so before it spends ten seconds
+# ---------------------------------------------------------------------------
+
+
+def test_a_filter_longer_than_the_horizon_is_refused_not_silently_truncated():
+    """The sensitivity run that could not be performed at all.
+
+    Lowering the cut-off to a thousandth of a radian a second lengthens
+    the filter's memory to 193 steps against a settling margin of 120, so
+    the last block's water would fall off the end of the horizon and the
+    volume balance would stop adding up without saying so. The run is
+    refused, and the refusal names the number that would make it possible
+    rather than leaving the author to find it.
+    """
+    module = load()
+    with pytest.raises(SystemExit) as refused:
+        module.build(order=3, cutoff=1.0e-3)
+    message = str(refused.value)
+    assert "193" in message and "--margin" in message
+
+
+def test_the_refusal_arrives_before_the_canal_is_built():
+    """Fail fast, because the filter alone settles it.
+
+    The check needs the filter and nothing else, so putting it after the
+    plant is built spends ten seconds to reach the same refusal. This
+    test fails if that ordering is ever reversed.
+    """
+    module = load()
+    built = []
+    original = module.build_plant
+    module.build_plant = lambda *a, **k: built.append(1) or original(*a, **k)
+    try:
+        with pytest.raises(SystemExit):
+            module.build(order=3, cutoff=1.0e-3)
+    finally:
+        module.build_plant = original
+    assert built == []
+
+
+def test_a_margin_that_covers_the_filter_is_accepted():
+    """And the frozen one covers the pre-registered filter."""
+    module = load()
+    from faircanal.config import DT_PLANT_S, SETTLE_MARGIN_STEPS
+    from faircanal.delivery import FilterSpec, memory_steps
+
+    frozen = FilterSpec(order=3, cutoff_rad_per_s=3.0e-3, sample_time_s=DT_PLANT_S)
+    assert memory_steps(frozen) <= SETTLE_MARGIN_STEPS
+    # Raising the order lengthens the memory but not past the frozen margin,
+    # which is why that sensitivity run needs no flag and the other does.
+    fourth = FilterSpec(order=4, cutoff_rad_per_s=3.0e-3, sample_time_s=DT_PLANT_S)
+    assert memory_steps(frozen) < memory_steps(fourth) <= SETTLE_MARGIN_STEPS
