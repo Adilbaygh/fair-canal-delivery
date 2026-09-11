@@ -33,6 +33,8 @@
 !/scripts/build_data.py
 !/scripts/run_experiments.py
 !/scripts/make_figures.py
+!/scripts/make_tables.py
+!/scripts/make_explorer.py
 
 # --- never published, wherever they appear -------------------------------
 **/__pycache__/
@@ -64,3 +66,14 @@ secrets.*
 !/results/figures/*.png
 !/results/figures/*.pdf
 !/results/figures/captions.md
+
+# The generated LaTeX tables are deliberately NOT published: *.tex is the
+# manuscript's own extension and the manuscript is not public until it is
+# accepted. Nothing is lost - the tables are derived from published CSVs by
+# a published script, so anyone can rebuild them with one command. The
+# Markdown copies are published, and carry the same numbers.
+#
+# The interactive appendix is published: it is the supplementary material
+# the paper points at, and it has to work from a downloaded copy with no
+# network, so it is one self-contained file.
+!/results/explorer.html
