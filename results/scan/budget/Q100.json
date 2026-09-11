@@ -1,0 +1,232 @@
+{
+  "blocks": 8,
+  "bound_method": "highs",
+  "bound_time_limit_s": null,
+  "bound_tolerance": null,
+  "certificate": {
+    "binding": [],
+    "ceilings": {
+      "corning-1-user": 1.0,
+      "corning-2-user": 1.0,
+      "corning-3-user": 1.0,
+      "corning-4-user": 1.0,
+      "corning-5-user": 1.0,
+      "corning-6-user": 1.0,
+      "corning-7-user": 1.0,
+      "corning-8-user": 1.0
+    },
+    "digest": "6ec7ec28836f258060790c40d6b6040d72ef6024260220cb0e4f8855cb30b7f6",
+    "fulfilled": true,
+    "impossible_users": [],
+    "ratios": {
+      "corning-1-user": 1.0000000000000018,
+      "corning-2-user": 0.9999999999999987,
+      "corning-3-user": 1.0,
+      "corning-4-user": 1.0,
+      "corning-5-user": 1.0,
+      "corning-6-user": 1.0,
+      "corning-7-user": 1.0000000000000002,
+      "corning-8-user": 1.0
+    },
+    "relaxation": {
+      "binding_families": [],
+      "cost": 0.0,
+      "feasible": true,
+      "slacks": {},
+      "units": {}
+    },
+    "report": "Delivery certificate for one-per-gate [6ec7ec28836f]\nEvery order was filled inside its window.",
+    "saturated": [
+      [
+        "corning-8-user",
+        "corning-7-user",
+        "corning-6-user",
+        "corning-5-user",
+        "corning-4-user",
+        "corning-3-user",
+        "corning-2-user",
+        "corning-1-user"
+      ]
+    ],
+    "seconds": 7.351,
+    "shortfalls_m3": {},
+    "stage_levels": [
+      1.0
+    ]
+  },
+  "cutoff_rad_per_s": 0.003,
+  "determinism": {
+    "l2_between_runs": 0.0,
+    "same_ratios": true,
+    "tie_break_cost": 0.0
+  },
+  "filter_order": 3,
+  "fraction": 1.0,
+  "horizon_steps": 240,
+  "label": "budget",
+  "overshoot": 0.5,
+  "settle_margin_steps": 120,
+  "source_m3_s": 11.0,
+  "users": [
+    "corning-8-user",
+    "corning-7-user",
+    "corning-6-user",
+    "corning-5-user",
+    "corning-4-user",
+    "corning-3-user",
+    "corning-2-user",
+    "corning-1-user"
+  ],
+  "variants": {
+    "B1": {
+      "detail": {
+        "norm": "L1",
+        "target": "zero deviation"
+      },
+      "feasible": true,
+      "fulfilled": true,
+      "n_programmes": 1,
+      "name": "ordering as usual",
+      "ratios": {
+        "corning-1-user": 1.0,
+        "corning-2-user": 1.0,
+        "corning-3-user": 1.0,
+        "corning-4-user": 1.0,
+        "corning-5-user": 1.0,
+        "corning-6-user": 1.0,
+        "corning-7-user": 1.0,
+        "corning-8-user": 1.0
+      },
+      "seconds": 0.588,
+      "spread": 0.0,
+      "status": "solved",
+      "total": 8.0,
+      "worst": 1.0
+    },
+    "B2": {
+      "detail": {
+        "blocks_early": 1,
+        "distance_from_shifted": 0.0,
+        "shift_changed_the_target": false,
+        "shifted": "B1"
+      },
+      "feasible": true,
+      "fulfilled": true,
+      "n_programmes": 2,
+      "name": "the same order, one block sooner",
+      "ratios": {
+        "corning-1-user": 1.0,
+        "corning-2-user": 1.0,
+        "corning-3-user": 1.0,
+        "corning-4-user": 1.0,
+        "corning-5-user": 1.0,
+        "corning-6-user": 1.0,
+        "corning-7-user": 1.0,
+        "corning-8-user": 1.0
+      },
+      "seconds": 0.598,
+      "spread": 0.0,
+      "status": "solved",
+      "total": 8.0,
+      "worst": 1.0
+    },
+    "B3": {
+      "detail": {},
+      "feasible": true,
+      "fulfilled": true,
+      "n_programmes": 1,
+      "name": "utilitarian",
+      "ratios": {
+        "corning-1-user": 1.0,
+        "corning-2-user": 1.0,
+        "corning-3-user": 1.0,
+        "corning-4-user": 1.0,
+        "corning-5-user": 1.0,
+        "corning-6-user": 0.9999999999999999,
+        "corning-7-user": 1.0,
+        "corning-8-user": 1.0
+      },
+      "seconds": 0.872,
+      "spread": 3.925231146709438e-17,
+      "status": "solved",
+      "total": 8.0,
+      "worst": 0.9999999999999999
+    },
+    "B4": {
+      "detail": {
+        "accuracy_bound": 8e-06,
+        "refined": true,
+        "stage_levels": [
+          1.0
+        ],
+        "stage_saturated": [
+          [
+            "corning-8-user",
+            "corning-7-user",
+            "corning-6-user",
+            "corning-5-user",
+            "corning-4-user",
+            "corning-3-user",
+            "corning-2-user",
+            "corning-1-user"
+          ]
+        ],
+        "tie_break_cost": 0.0
+      },
+      "feasible": true,
+      "fulfilled": true,
+      "n_programmes": 10,
+      "name": "lexicographic max-min",
+      "ratios": {
+        "corning-1-user": 1.0,
+        "corning-2-user": 1.0,
+        "corning-3-user": 1.0,
+        "corning-4-user": 1.0,
+        "corning-5-user": 1.0,
+        "corning-6-user": 1.0,
+        "corning-7-user": 1.0,
+        "corning-8-user": 1.0
+      },
+      "seconds": 8.219,
+      "spread": 0.0,
+      "status": "solved",
+      "total": 8.0,
+      "worst": 1.0
+    },
+    "B5": {
+      "detail": {
+        "certified_width": 0.0,
+        "converged": true,
+        "corrections": 0,
+        "gap": -0.0,
+        "iterations": 1,
+        "method": "fully corrective Frank-Wolfe, exact line search as fallback",
+        "schedules_mixed": 1,
+        "sigma_bounds": [
+          0.0,
+          0.0
+        ],
+        "sigma_tol": 1e-06
+      },
+      "feasible": true,
+      "fulfilled": true,
+      "n_programmes": 1,
+      "name": "least spread of fractions",
+      "ratios": {
+        "corning-1-user": 1.0,
+        "corning-2-user": 1.0,
+        "corning-3-user": 1.0,
+        "corning-4-user": 1.0,
+        "corning-5-user": 1.0,
+        "corning-6-user": 1.0,
+        "corning-7-user": 1.0,
+        "corning-8-user": 1.0
+      },
+      "seconds": 0.663,
+      "spread": 0.0,
+      "status": "solved",
+      "total": 8.0,
+      "worst": 1.0
+    }
+  }
+}

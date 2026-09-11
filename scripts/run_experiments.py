@@ -84,7 +84,11 @@ from faircanal.baselines import (  # noqa: E402
     utilitarian,
 )
 from faircanal.certificate import certify  # noqa: E402
-from faircanal.config import DT_PLANT_S, SETTLE_MARGIN_STEPS  # noqa: E402
+from faircanal.config import (  # noqa: E402
+    DT_PLANT_S,
+    SETTLE_MARGIN_STEPS,
+    STEPS_PER_BLOCK,
+)
 from faircanal.control import control_law  # noqa: E402
 from faircanal.delivery import FilterSpec, memory_steps  # noqa: E402
 from faircanal.geometry import uniform_discharge  # noqa: E402
@@ -273,11 +277,31 @@ def run_point(
     bound_level_only: bool = False,
 ) -> dict:
     """Fill in whatever this point is still missing, and say what it did."""
+    # The delivery window is the one agreed with the farmers, and it does
+    # not move when the filter gets slower. That is the whole premise: the
+    # question this study exists to answer is whether the water arrives
+    # inside the agreed window, so a window that stretched to accommodate
+    # a slower filter would answer it by definition.
+    #
+    # It has to be said explicitly because the scenario's default is the
+    # end of the horizon, and the horizon has to grow to hold a longer
+    # filter's tail. Left to the default, a longer tail lengthened the
+    # window, the window lengthened the demand - nominal draw across the
+    # window is what demand means - and the same eight order blocks were
+    # asked to fill 35% more water. Feasibility collapsed, and it would
+    # have been read as the filter's doing. Measured: at a margin of 193
+    # the demand rose from 138,600 to 186,780 cubic metres with no change
+    # to the filter at all.
+    window = (
+        LEAD_BLOCKS * STEPS_PER_BLOCK,
+        horizon_for(BLOCKS, STEPS_PER_BLOCK, SETTLE_MARGIN_STEPS) - 1,
+    )
     scenario = one_user_per_gate(
         network,
         BLOCKS,
         limits,
         source_discharge_m3_s=fraction * network.aggregate_demand,
+        window=window,
         lead_blocks=LEAD_BLOCKS,
         overshoot=overshoot,
         settle_margin=settle_margin,
@@ -371,7 +395,22 @@ def run_point(
                 f"programme",
                 flush=True,
             )
-            record["certificate"] = describe_certificate(certify(programme, None))
+            # The certificate explains *why* there is no schedule, and it
+            # is a second set of linear programmes with the same right to
+            # come back without a verdict as the first. The verdict that
+            # matters - no schedule - is already recorded; failing to
+            # explain it must not throw away the point that has it.
+            try:
+                record["certificate"] = describe_certificate(
+                    certify(programme, None)
+                )
+            except SolverUndecided as trouble:
+                print(
+                    f"  Q={fraction:>5.0%}  certificate NOT WRITTEN - the "
+                    f"solver returned without deciding ({trouble}). The point "
+                    f"has no schedule; what is missing is the reason.",
+                    flush=True,
+                )
             empty = True
             if "M1" not in missing:
                 return record

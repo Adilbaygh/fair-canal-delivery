@@ -1,0 +1,264 @@
+{
+  "blocks": 8,
+  "bound_method": "highs",
+  "bound_time_limit_s": null,
+  "bound_tolerance": null,
+  "certificate": {
+    "binding": [
+      {
+        "active_rows": 8,
+        "family": "C8 source availability",
+        "largest_price": 695.0641610018947,
+        "unit": "m^3/s"
+      }
+    ],
+    "ceilings": {
+      "corning-1-user": 1.0,
+      "corning-2-user": 1.0,
+      "corning-3-user": 1.0,
+      "corning-4-user": 1.0,
+      "corning-5-user": 1.0,
+      "corning-6-user": 1.0,
+      "corning-7-user": 1.0,
+      "corning-8-user": 1.0
+    },
+    "digest": "a277546eb1d9be408334b9fb6915348ab8743b506ce5308eeb0cacb42a4897f8",
+    "fulfilled": false,
+    "impossible_users": [],
+    "ratios": {
+      "corning-1-user": 0.9540403254768016,
+      "corning-2-user": 0.9540403254768008,
+      "corning-3-user": 0.9540403254768011,
+      "corning-4-user": 0.9540403254768008,
+      "corning-5-user": 0.9540403254768012,
+      "corning-6-user": 0.9540403254768005,
+      "corning-7-user": 0.954040325476801,
+      "corning-8-user": 0.9540403254768005
+    },
+    "relaxation": {
+      "binding_families": [
+        "C8 source availability"
+      ],
+      "cost": 0.08070929969858057,
+      "feasible": true,
+      "slacks": {
+        "C2 delivered flow non-negative": 0.0,
+        "C3 volume budget": 0.0,
+        "C5 gate flow inside the reach's conveyance": 0.0,
+        "C6 gate travel rate": 0.0,
+        "C7 level inside its band": 0.0,
+        "C8 source availability": 0.8878022966843861
+      },
+      "units": {
+        "C2 delivered flow non-negative": "m^3/s",
+        "C3 volume budget": "m^3",
+        "C5 gate flow inside the reach's conveyance": "m^3/s",
+        "C6 gate travel rate": "m^3/s per step",
+        "C7 level inside its band": "m",
+        "C8 source availability": "m^3/s"
+      }
+    },
+    "report": "Delivery certificate for one-per-gate [a277546eb1d9]\nNOT FILLED: 8 of 8 orders. Worst is corning-8-user at 0.9540 of its demand (1332 m^3 short).\nEvery order is reachable on its own; what is missing is the water to fill them together.\nIn the way, by what a unit of it is worth:\n  C8 source availability: 8 active, largest price 695.064 per m^3/s\nEverybody could be filled if these gave together: C8 source availability +0.8878 m^3/s.",
+    "saturated": [
+      [
+        "corning-8-user",
+        "corning-7-user",
+        "corning-6-user",
+        "corning-5-user",
+        "corning-4-user",
+        "corning-3-user",
+        "corning-2-user",
+        "corning-1-user"
+      ]
+    ],
+    "seconds": 14.341,
+    "shortfalls_m3": {
+      "corning-1-user": 984.4562282869093,
+      "corning-2-user": 1042.3654181861568,
+      "corning-3-user": 1563.5481272792279,
+      "corning-4-user": 173.72756969769281,
+      "corning-5-user": 115.81837979846104,
+      "corning-6-user": 463.27351919385086,
+      "corning-7-user": 694.9102787907696,
+      "corning-8-user": 1331.911367682321
+    },
+    "stage_levels": [
+      0.954040325476801
+    ]
+  },
+  "cutoff_rad_per_s": 0.003,
+  "determinism": {
+    "l2_between_runs": 0.0,
+    "same_ratios": true,
+    "tie_break_cost": 19.20067300936624
+  },
+  "filter_order": 3,
+  "fraction": 0.9,
+  "horizon_steps": 240,
+  "label": "budget",
+  "overshoot": 0.5,
+  "settle_margin_steps": 120,
+  "source_m3_s": 9.9,
+  "users": [
+    "corning-8-user",
+    "corning-7-user",
+    "corning-6-user",
+    "corning-5-user",
+    "corning-4-user",
+    "corning-3-user",
+    "corning-2-user",
+    "corning-1-user"
+  ],
+  "variants": {
+    "B1": {
+      "detail": {
+        "norm": "L1",
+        "target": "zero deviation"
+      },
+      "feasible": true,
+      "fulfilled": false,
+      "n_programmes": 1,
+      "name": "ordering as usual",
+      "ratios": {
+        "corning-1-user": 0.9809476988292881,
+        "corning-2-user": 0.8836886064016243,
+        "corning-3-user": 0.9631374514359453,
+        "corning-4-user": 0.8571428704295276,
+        "corning-5-user": 0.8660702759603879,
+        "corning-6-user": 0.9651728280512049,
+        "corning-7-user": 0.944355585894286,
+        "corning-8-user": 1.0
+      },
+      "seconds": 0.643,
+      "spread": 0.05187036211345507,
+      "status": "solved",
+      "total": 7.460515317002264,
+      "worst": 0.8571428704295276
+    },
+    "B2": {
+      "detail": {
+        "blocks_early": 1,
+        "distance_from_shifted": 3.3737426036145695,
+        "shift_changed_the_target": true,
+        "shifted": "B1"
+      },
+      "feasible": true,
+      "fulfilled": false,
+      "n_programmes": 2,
+      "name": "the same order, one block sooner",
+      "ratios": {
+        "corning-1-user": 0.9809476890015224,
+        "corning-2-user": 0.8836886584096812,
+        "corning-3-user": 0.920288734799435,
+        "corning-4-user": 0.8571428177032213,
+        "corning-5-user": 0.9183111376401344,
+        "corning-6-user": 0.9651727553632478,
+        "corning-7-user": 1.0,
+        "corning-8-user": 1.0
+      },
+      "seconds": 0.638,
+      "spread": 0.05049968888852708,
+      "status": "solved",
+      "total": 7.525551792917242,
+      "worst": 0.8571428177032213
+    },
+    "B3": {
+      "detail": {},
+      "feasible": true,
+      "fulfilled": false,
+      "n_programmes": 1,
+      "name": "utilitarian",
+      "ratios": {
+        "corning-1-user": 0.9999999999999999,
+        "corning-2-user": 1.0,
+        "corning-3-user": 0.8127568815721513,
+        "corning-4-user": 1.0,
+        "corning-5-user": 1.0,
+        "corning-6-user": 1.0,
+        "corning-7-user": 1.0,
+        "corning-8-user": 1.0
+      },
+      "seconds": 1.238,
+      "spread": 0.06192484075853788,
+      "status": "solved",
+      "total": 7.8127568815721515,
+      "worst": 0.8127568815721513
+    },
+    "B4": {
+      "detail": {
+        "accuracy_bound": 8e-06,
+        "refined": true,
+        "stage_levels": [
+          0.954040325476801
+        ],
+        "stage_saturated": [
+          [
+            "corning-8-user",
+            "corning-7-user",
+            "corning-6-user",
+            "corning-5-user",
+            "corning-4-user",
+            "corning-3-user",
+            "corning-2-user",
+            "corning-1-user"
+          ]
+        ],
+        "tie_break_cost": 19.20067300936624
+      },
+      "feasible": true,
+      "fulfilled": false,
+      "n_programmes": 10,
+      "name": "lexicographic max-min",
+      "ratios": {
+        "corning-1-user": 0.9540393254768016,
+        "corning-2-user": 0.9540393254768006,
+        "corning-3-user": 0.9540393254768011,
+        "corning-4-user": 0.9540393254768003,
+        "corning-5-user": 0.9540393254768011,
+        "corning-6-user": 0.9540393254768005,
+        "corning-7-user": 0.9540393254768009,
+        "corning-8-user": 0.9540393254768005
+      },
+      "seconds": 14.488,
+      "spread": 4.20934145542537e-16,
+      "status": "solved",
+      "total": 7.6323146038144065,
+      "worst": 0.9540393254768003
+    },
+    "B5": {
+      "detail": {
+        "certified_width": 1.643113543483339e-10,
+        "converged": true,
+        "corrections": 7,
+        "gap": 5.1230546368480133e-11,
+        "iterations": 8,
+        "method": "fully corrective Frank-Wolfe, exact line search as fallback",
+        "schedules_mixed": 8,
+        "sigma_bounds": [
+          0.0,
+          1.643113543483339e-10
+        ],
+        "sigma_tol": 1e-06
+      },
+      "feasible": true,
+      "fulfilled": false,
+      "n_programmes": 8,
+      "name": "least spread of fractions",
+      "ratios": {
+        "corning-1-user": 0.9003766451668382,
+        "corning-2-user": 0.9003766453603606,
+        "corning-3-user": 0.9003766452189507,
+        "corning-4-user": 0.9003766451433666,
+        "corning-5-user": 0.9003766451210796,
+        "corning-6-user": 0.9003766448195911,
+        "corning-7-user": 0.9003766453962578,
+        "corning-8-user": 0.9003766451979013
+      },
+      "seconds": 6.154,
+      "spread": 1.643113543483339e-10,
+      "status": "solved",
+      "total": 7.203013161424346,
+      "worst": 0.9003766448195911
+    }
+  }
+}
