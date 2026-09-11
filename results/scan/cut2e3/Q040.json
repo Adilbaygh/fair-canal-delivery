@@ -1,0 +1,104 @@
+{
+  "blocks": 8,
+  "bound_method": "highs",
+  "bound_time_limit_s": null,
+  "bound_tolerance": null,
+  "certificate": {
+    "binding": [],
+    "ceilings": {
+      "corning-1-user": null,
+      "corning-2-user": null,
+      "corning-3-user": null,
+      "corning-4-user": null,
+      "corning-5-user": null,
+      "corning-6-user": null,
+      "corning-7-user": null,
+      "corning-8-user": null
+    },
+    "digest": "f01718fda7aacf789a25ef917b9756d0cba28b465f10f8e11d6cc1e74f6dc5e6",
+    "fulfilled": false,
+    "impossible_users": [],
+    "ratios": {},
+    "relaxation": {
+      "binding_families": [
+        "C8 source availability"
+      ],
+      "cost": 0.0037704749895648895,
+      "feasible": true,
+      "slacks": {
+        "C2 delivered flow non-negative": 0.0,
+        "C3 volume budget": 0.0,
+        "C5 gate flow inside the reach's conveyance": 0.0,
+        "C6 gate travel rate": 0.0,
+        "C7 level inside its band": 0.0,
+        "C8 source availability": 0.04147522488521378
+      },
+      "units": {
+        "C2 delivered flow non-negative": "m^3/s",
+        "C3 volume budget": "m^3",
+        "C5 gate flow inside the reach's conveyance": "m^3/s",
+        "C6 gate travel rate": "m^3/s per step",
+        "C7 level inside its band": "m",
+        "C8 source availability": "m^3/s"
+      }
+    },
+    "report": "Delivery certificate for one-per-gate [f01718fda7aa]\nNO SCHEDULE EXISTS: not one order can be met on these terms, however the water is shared.\nA schedule would exist if these gave together: C8 source availability +0.04148 m^3/s.",
+    "saturated": [],
+    "shortfalls_m3": {
+      "corning-1-user": 21420.0,
+      "corning-2-user": 22680.0,
+      "corning-3-user": 34020.0,
+      "corning-4-user": 3780.0,
+      "corning-5-user": 2520.0,
+      "corning-6-user": 10080.0,
+      "corning-7-user": 15120.0,
+      "corning-8-user": 28979.999999999996
+    },
+    "stage_levels": []
+  },
+  "cutoff_rad_per_s": 0.002,
+  "filter_order": 3,
+  "fraction": 0.4,
+  "horizon_steps": 240,
+  "label": "cut2e3",
+  "overshoot": 0.0,
+  "settle_margin_steps": 120,
+  "source_m3_s": 4.4,
+  "users": [
+    "corning-8-user",
+    "corning-7-user",
+    "corning-6-user",
+    "corning-5-user",
+    "corning-4-user",
+    "corning-3-user",
+    "corning-2-user",
+    "corning-1-user"
+  ],
+  "variants": {
+    "B1": {
+      "feasible": false,
+      "status": "infeasible",
+      "why": "B1 unchanged order: the solver returned status 2 (The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None))"
+    },
+    "B2": {
+      "feasible": false,
+      "status": "infeasible",
+      "why": "B1 unchanged order: the solver returned status 2 (The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None))"
+    },
+    "B3": {
+      "feasible": false,
+      "status": "infeasible",
+      "why": "B1 unchanged order: the solver returned status 2 (The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None))"
+    },
+    "B4": {
+      "feasible": false,
+      "status": "infeasible",
+      "why": "B1 unchanged order: the solver returned status 2 (The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None))"
+    },
+    "B5": {
+      "feasible": false,
+      "status": "infeasible",
+      "why": "B1 unchanged order: the solver returned status 2 (The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None))"
+    }
+  }
+}

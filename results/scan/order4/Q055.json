@@ -1,0 +1,51 @@
+{
+  "blocks": 8,
+  "bound_method": "highs",
+  "bound_time_limit_s": null,
+  "bound_tolerance": null,
+  "cutoff_rad_per_s": 0.003,
+  "filter_order": 4,
+  "fraction": 0.55,
+  "horizon_steps": 240,
+  "label": "order4",
+  "overshoot": 0.0,
+  "settle_margin_steps": 120,
+  "source_m3_s": 6.050000000000001,
+  "users": [
+    "corning-8-user",
+    "corning-7-user",
+    "corning-6-user",
+    "corning-5-user",
+    "corning-4-user",
+    "corning-3-user",
+    "corning-2-user",
+    "corning-1-user"
+  ],
+  "variants": {
+    "B1": {
+      "feasible": false,
+      "status": "infeasible",
+      "why": "B1 unchanged order: the solver returned status 2 (The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None))"
+    },
+    "B2": {
+      "feasible": false,
+      "status": "infeasible",
+      "why": "B1 unchanged order: the solver returned status 2 (The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None))"
+    },
+    "B3": {
+      "feasible": false,
+      "status": "infeasible",
+      "why": "B1 unchanged order: the solver returned status 2 (The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None))"
+    },
+    "B4": {
+      "feasible": false,
+      "status": "infeasible",
+      "why": "B1 unchanged order: the solver returned status 2 (The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None))"
+    },
+    "B5": {
+      "feasible": false,
+      "status": "infeasible",
+      "why": "B1 unchanged order: the solver returned status 2 (The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None))"
+    }
+  }
+}
