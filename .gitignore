@@ -35,6 +35,7 @@
 !/scripts/make_figures.py
 !/scripts/make_tables.py
 !/scripts/make_explorer.py
+!/scripts/check_submission.py
 
 # --- never published, wherever they appear -------------------------------
 **/__pycache__/

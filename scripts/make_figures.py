@@ -219,9 +219,38 @@ def save(figure, stem: str) -> list[Path]:
     for suffix in ("png", "pdf"):
         path = out / f"{stem}.{suffix}"
         figure.savefig(path)
+        if suffix == "png":
+            flatten(path)
         written.append(path)
     plt.close(figure)
     return written
+
+
+def flatten(path: Path) -> None:
+    """Drop the alpha channel, because the journal asks for RGB.
+
+    Matplotlib writes RGBA. The alpha here is fully opaque - nothing is
+    transparent - so this changes no pixel a reader will ever see. It is
+    done anyway because "RGB" is what the requirement says, and an alpha
+    channel that survives into a print pipeline is the kind of thing that
+    composites against black on one press and white on the next.
+
+    Pillow ships with matplotlib, so this is not a new dependency. If it
+    is somehow absent the figure is still perfectly usable, so the miss is
+    reported rather than raised.
+    """
+    try:
+        from PIL import Image
+    except ImportError:  # pragma: no cover - matplotlib brings Pillow
+        print(f"    (Pillow missing: {path.name} keeps its alpha channel)")
+        return
+    with Image.open(path) as image:
+        if image.mode == "RGB":
+            return
+        dpi = image.info.get("dpi", (600, 600))
+        white = Image.new("RGB", image.size, (255, 255, 255))
+        white.paste(image, mask=image.split()[-1] if "A" in image.mode else None)
+        white.save(path, dpi=dpi)
 
 
 # ---------------------------------------------------------------------------
