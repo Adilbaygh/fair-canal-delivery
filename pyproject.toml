@@ -14,6 +14,10 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "matplotlib>=3.9"]
+# The desktop window only. Deliberately optional: the published numbers are
+# produced by the scripts, which need none of this, and the test suite
+# passes without it.
+gui = ["PyQt6>=6.6", "matplotlib>=3.9"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

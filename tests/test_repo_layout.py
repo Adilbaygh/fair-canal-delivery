@@ -44,6 +44,7 @@ PUBLIC_ROOT_FILES = (
     "main.py",
     "requirements.txt",
     "requirements-lock.txt",
+    "requirements-gui.txt",
 )
 
 # Files whose job is to list paths that do not exist yet.

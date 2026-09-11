@@ -19,6 +19,7 @@
 !/main.py
 !/requirements.txt
 !/requirements-lock.txt
+!/requirements-gui.txt
 
 # --- public directories --------------------------------------------------
 !/src/

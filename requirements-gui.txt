@@ -1,0 +1,15 @@
+# The desktop window, and nothing else.
+#
+# Kept apart from requirements.txt on purpose. Every number this study
+# reports is produced by the scripts, and those need only what is in
+# requirements.txt; the window reads the files they wrote. A reviewer who
+# wants to reproduce the results never has to install a GUI toolkit, and
+# the test suite passes without one - the window's own tests skip.
+#
+#     python -m pip install -r requirements-gui.txt
+#     python main.py
+#
+# matplotlib is already a direct dependency of the figure script; the
+# window embeds it through the same Qt binding, so no second plotting
+# stack is introduced.
+PyQt6>=6.6
