@@ -202,6 +202,33 @@ def check_appendix(root: Path, report: Report) -> None:
     )
 
 
+def check_inputs(root: Path, report: Report) -> None:
+    """The other half of reproducibility, and the half that was missing.
+
+    An archive of results whose inputs live only inside Python modules is
+    reproducible to a programmer and opaque to everybody else. The reader
+    a Data Availability statement is written for should be able to see
+    what canal produced these numbers without importing anything.
+    """
+    folder = root / "DATA"
+    csv_path, json_path = folder / "corning_canal.csv", folder / "inputs.json"
+    if not (csv_path.exists() and json_path.exists()):
+        report.add(FAIL, "model inputs", "DATA/ is empty - run build_data.py")
+        return
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+    reaches = payload.get("canal", {}).get("reaches", 0)
+    rows = len(csv_path.read_text(encoding="utf-8").strip().splitlines()) - 1
+    labelled = all(
+        payload.get(block, {}).get("provenance")
+        for block in ("limits", "filter", "scenario")
+    ) and payload.get("canal", {}).get("geometry_source")
+    report.ok(
+        reaches == rows and rows > 0 and bool(labelled), "model inputs",
+        f"{rows} reaches exported, every block cited and labelled",
+        "inputs incomplete or a block has no provenance label",
+    )
+
+
 def check_archive(root: Path, report: Report) -> None:
     """Strict JSON, because it once was not and nothing said so."""
     bad = []
@@ -311,6 +338,7 @@ def main() -> int:
     check_captions(root, report)
     check_tables(root, report)
     check_appendix(root, report)
+    check_inputs(root, report)
     check_archive(root, report)
     check_environment(root, report)
     check_size(root, report)

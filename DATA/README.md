@@ -1,17 +1,35 @@
 # DATA
 
-Normalised inputs for the study, together with everything needed to rebuild
-them from their published sources.
+Every input the model takes, exported from the source so that the canal
+behind `results/` can be read without opening a Python module.
 
-## Rules
+| File | What it holds |
+|---|---|
+| `corning_canal.csv` | The published canal as a table, one row per reach |
+| `inputs.json` | Everything, with each block's citation and provenance label |
 
-* Every layer records the source URL, the access date, the licence and the
-  exact query or export used, in `provenance.json`.
-* `SHA256SUMS.txt` lists a checksum for every file here, so the build is its
-  own regression test.
-* This directory is produced by `scripts/build_data.py`. It is not edited by
-  hand. Deleting it and re-running that script must write the same bytes
-  back.
-* No confidential or person-level data is used anywhere in this study.
+## Provenance, in three words
 
-Nothing has been built yet.
+Each block in `inputs.json` carries one of three labels, and they are not
+interchangeable:
+
+- **observed** - published by someone else and cited. The canal geometry,
+  the offtakes and the check flows are all observed, and the citation is
+  in the file.
+- **derived** - computed from something observed by a stated formula. The
+  conveyance capacity of each reach is the uniform discharge at full
+  supply level; the level band is the canal depth minus the target level.
+- **assumed** - chosen by this study because no published value was found.
+  The gate travel rate, the warm-up, the delivery window and the filter
+  are assumed, and every result that depends on them says so.
+
+## These files are exported, not read
+
+The code remains authoritative. `scripts/build_data.py` writes these from
+the live objects and `tests/test_data_export.py` rebuilds every value and
+fails if they disagree, so an export cannot quietly drift from the model
+it claims to describe.
+
+Regenerate with:
+
+    python scripts/build_data.py
