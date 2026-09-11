@@ -57,5 +57,10 @@
 secrets.*
 
 # --- the one published exception: figures are computation output ---------
+# The PNG is what the journal receives; the PDF is the vector master kept
+# for re-export; captions.md holds each caption in the wording the
+# manuscript uses, beside the code that drew the figure so the two cannot
+# drift. EPS is no longer produced - Mathematics takes raster at 600 dpi.
+!/results/figures/*.png
 !/results/figures/*.pdf
-!/results/figures/*.eps
+!/results/figures/captions.md
