@@ -31,7 +31,7 @@ license:
   # LICENSE-DATA.
   - MIT
   - CC-BY-4.0
-repository-code: "https://github.com/adilbaygm/fair-canal-delivery"
+repository-code: "https://github.com/Adilbaygh/fair-canal-delivery"
 keywords:
   - irrigation canal control
   - lexicographic max-min fairness
