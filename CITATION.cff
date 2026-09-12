@@ -17,13 +17,97 @@ abstract: >-
   provenance record, the figures and tables the article reports, and a
   desktop viewer that shows every number beside the file it came from.
 authors:
-  # Completed by the corresponding author on 2026-09-12. The list, its
-  # order, the affiliations and the identifiers are the author's to decide;
-  # do not add to, reorder or complete this list automatically.
+  # Given by the corresponding author on 2026-09-12. The list, its order,
+  # the affiliations and the identifiers are the authors' to decide; do not
+  # add to, reorder or complete this list automatically.
+  #
+  # This is the article's author list, and it is here in the article's
+  # order. CFF 1.2.0 has no "contributors" key, so everyone written here is
+  # cited and nobody else is. Anyone who helped without being an author of
+  # the article belongs in the Zenodo record's Contributors field, which is
+  # a separate list that does not enter the citation.
+  #
+  # Every identifier below passed the ISO 7064 MOD 11-2 check digit on
+  # 2026-09-12, and the name on each public ORCID record was read and
+  # compared, because a well-formed identifier can still belong to someone
+  # else and a DOI makes that mistake quotable.
+  #
+  # No e-mail addresses here, deliberately. CFF allows them and does not
+  # require them, and this file becomes public when the repository does.
+  # The article publishes the addresses under the authors' own decision;
+  # a public repository file should not publish them a second time.
   - family-names: "Kudaybergenov"
-    given-names: "Adilbay Abatbaevich"
+    given-names: "Adilbay"
     orcid: "https://orcid.org/0000-0002-2630-5182"
-    affiliation: "Karakalpak State University named after Berdakh"
+    affiliation: "Department of Information Systems and Technologies, Karakalpak State University named after Berdakh"
+    address: "1 Ch. Abdirov St."
+    city: "Nukus"
+    post-code: "230112"
+    country: "UZ"
+  - family-names: "Kazimbetova"
+    given-names: "Mukhabbad"
+    orcid: "https://orcid.org/0009-0006-2052-4655"
+    affiliation: "Department of Information Systems and Technologies, Karakalpak State University named after Berdakh"
+    address: "1 Ch. Abdirov St."
+    city: "Nukus"
+    post-code: "230112"
+    country: "UZ"
+  - family-names: "Ametova"
+    given-names: "Gulsara"
+    orcid: "https://orcid.org/0009-0003-6824-2559"
+    affiliation: 'Department of Digital Technologies and Artificial Intelligence, "Tashkent Institute of Irrigation and Agricultural Mechanization Engineers" National Research University'
+    address: "39 Kari Niyaziy St."
+    city: "Tashkent"
+    post-code: "100000"
+    country: "UZ"
+  - family-names: "Ispanova"
+    given-names: "Jadira"
+    orcid: "https://orcid.org/0009-0006-5701-7200"
+    affiliation: "Department of Information Systems and Technologies, Karakalpak State University named after Berdakh"
+    address: "1 Ch. Abdirov St."
+    city: "Nukus"
+    post-code: "230112"
+    country: "UZ"
+  - family-names: "Absametov"
+    given-names: "Bayram"
+    orcid: "https://orcid.org/0009-0009-4062-6917"
+    affiliation: "Department of Information Systems and Technologies, Karakalpak State University named after Berdakh"
+    address: "1 Ch. Abdirov St."
+    city: "Nukus"
+    post-code: "230112"
+    country: "UZ"
+  - family-names: "Qudaynazarov"
+    given-names: "Mukhammed"
+    orcid: "https://orcid.org/0000-0003-4619-7729"
+    affiliation: "Department of Information Systems and Technologies, Karakalpak State University named after Berdakh"
+    address: "1 Ch. Abdirov St."
+    city: "Nukus"
+    post-code: "230112"
+    country: "UZ"
+  - family-names: "Shikhiyev"
+    given-names: "Rakhim"
+    orcid: "https://orcid.org/0000-0003-2207-9357"
+    affiliation: "Department of Information Systems and Technologies, Karakalpak State University named after Berdakh"
+    address: "1 Ch. Abdirov St."
+    city: "Nukus"
+    post-code: "230112"
+    country: "UZ"
+  - family-names: "Urazimbetova"
+    given-names: "Elzura"
+    orcid: "https://orcid.org/0000-0003-4390-0327"
+    affiliation: "Department of Information Systems and Technologies, Karakalpak State University named after Berdakh"
+    address: "1 Ch. Abdirov St."
+    city: "Nukus"
+    post-code: "230112"
+    country: "UZ"
+  - family-names: "Nurullaev"
+    given-names: "Zhusipbay"
+    orcid: "https://orcid.org/0000-0003-0935-5388"
+    affiliation: "Department of Information Systems and Technologies, Karakalpak State University named after Berdakh"
+    address: "1 Ch. Abdirov St."
+    city: "Nukus"
+    post-code: "230112"
+    country: "UZ"
 license:
   # Two licences, because the repository holds two kinds of thing: the code
   # is MIT, and the inputs and results are CC BY 4.0 - the licence of the
