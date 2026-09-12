@@ -60,18 +60,26 @@ sys.path.insert(0, str(ROOT / "src"))
 from faircanal.provenance import repo_root  # noqa: E402
 
 # --- the journal's page, in inches ----------------------------------------
-# Mathematics sets one column across the page. FULL is the template's text
-# width; HALF is for two panels side by side in separate figures.
+# Both widths are read out of the journal's own template rather than from a
+# round number, because a figure drawn at the wrong width is rescaled by the
+# typesetter and every label in it changes size with it.
 #
-# FULL is taken from the journal class's text width and has not yet been
-# measured against the downloaded template; that is tracked as an open item
-# with the rest of the submission checklist. It affects the rendered font
-# size relative to the page and nothing else, so it is cheap to correct.
+# From the LaTeX class (Definitions/mdpi.cls, the ordinary article layout):
+# A4 is 210 mm, the left margin is 58.7 mm and the right margin 12.7 mm, so
+# the text column is 210 - 58.7 - 12.7 = 138.6 mm. A figure that needs the
+# whole page is wrapped in \begin{adjustwidth}{-\extralength}{0cm}, which
+# gives back the 46.1 mm margin column: 210 - 12.7 - 12.7 = 184.6 mm. That
+# second number is the class's own \fulllength.
+#
+# The Word template agrees exactly: its section properties give an A4 page
+# of 11906 twips with 720-twip margins on both sides, which is the same
+# 184.6 mm text block.
+#
+# So the template offers two widths and no others, and these are they.
 MM = 1.0 / 25.4
-FULL = 170 * MM
-HALF = 85 * MM
-ONE_COLUMN = HALF     # kept as names the figure bodies already use
-TWO_COLUMN = FULL
+COLUMN = 138.6 * MM   # the text column; a single-panel figure
+FULL = 184.6 * MM     # the full text block, via adjustwidth in LaTeX
+TWO_COLUMN = FULL     # the name the two-panel figure bodies already use
 
 # --- the validated categorical order, used in its documented sequence -----
 # Colour is the pleasant channel. Dash and marker are the load-bearing ones,
@@ -473,7 +481,7 @@ def figure_4() -> list[Path]:
     alone.
     """
     frozen, loosened = summary("main"), summary("budget")
-    figure, axis = plt.subplots(figsize=(110 * MM, 2.5))
+    figure, axis = plt.subplots(figsize=(COLUMN, 2.7))
 
     for code in ("B4", "B1"):
         style = STYLE[code]
