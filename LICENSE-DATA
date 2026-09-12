@@ -1,0 +1,56 @@
+Creative Commons Attribution 4.0 International (CC BY 4.0)
+
+Copyright (c) 2026 Adilbay Kudaybergenov
+
+The model inputs and the computed results in this repository - everything
+under DATA/ and everything under results/ - are licensed under the Creative
+Commons Attribution 4.0 International licence.
+
+You are free to share and adapt this material for any purpose, including
+commercially, provided you give appropriate credit, link to the licence and
+indicate if changes were made.
+
+The full legal code is at:
+
+    https://creativecommons.org/licenses/by/4.0/legalcode
+
+and the human-readable summary at:
+
+    https://creativecommons.org/licenses/by/4.0/
+
+The software in this repository is licensed separately, under the MIT
+licence; see LICENSE.
+
+
+WHY THIS LICENCE, AND WHAT ATTRIBUTION MEANS HERE
+
+CC BY is not a stylistic choice. The canal geometry this study is built on
+was published by someone else under CC BY, so the attribution chain has to
+be carried forward rather than closed off. Reusing the files under DATA/ or
+results/ therefore means crediting two things:
+
+  1. This package, as given in CITATION.cff.
+
+  2. The source of the canal geometry:
+
+     Bonet, E.; Yubero, M. T.; Bascompta, M.; Alfonso, P. (2025).
+     A Linear Model for Irrigation Canals Operating in Real Time Applied
+     in ASCE Test Cases. Water 17(9):1368.
+     https://doi.org/10.3390/w17091368
+     Licensed CC BY. Tables 5 and 6.
+
+     Target depths are taken from:
+
+     Litrico, X.; Fromion, V. (2004). Simplified Modeling of Irrigation
+     Canals for Controller Design. Journal of Irrigation and Drainage
+     Engineering 130(5):373-383.
+     https://doi.org/10.1061/(ASCE)0733-9437(2004)130:5(373)
+
+DATA/inputs.json carries these citations beside the numbers they apply to,
+together with a provenance label for every block: observed, derived, or
+assumed. The labels are not decoration. "Observed" means somebody else
+published it and the citation travels with it; "derived" means it follows
+from something observed by a stated formula; "assumed" means this study
+chose it because no published value was found. Anyone reusing these files
+should keep the labels with the numbers, because a value whose provenance
+has been stripped cannot be checked by the next person.

@@ -210,6 +210,16 @@ it claims to describe.
 Regenerate with:
 
     python scripts/build_data.py
+
+## Licence and attribution
+
+These files are released under Creative Commons Attribution 4.0
+International (CC BY 4.0); the statement is in `LICENSE-DATA` in the
+repository root. CC BY is also the licence of the published canal geometry
+this study builds on, so the chain is kept intact rather than relicensed:
+anyone reusing these files should cite this package **and** the source of
+the geometry, which `inputs.json` names in full beside the numbers it
+applies to.
 """
 
 

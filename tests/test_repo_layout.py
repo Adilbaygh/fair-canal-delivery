@@ -40,6 +40,8 @@ PUBLIC_ROOTS = ("src", "DATA", "results", "tests")
 PUBLIC_ROOT_FILES = (
     "README.md",
     "CITATION.cff",
+    "LICENSE",
+    "LICENSE-DATA",
     "pyproject.toml",
     "main.py",
     "requirements.txt",

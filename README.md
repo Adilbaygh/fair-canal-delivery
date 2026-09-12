@@ -12,9 +12,8 @@ controller and the filter itself are left untouched. When an order cannot be
 met, the method returns an infeasibility certificate instead of an optimistic
 schedule.
 
-**Status: under construction.** The model is fixed and verified; the
-implementation is being built step by step. Only the objects listed in
-"Reported objects" below are currently produced.
+Everything the article reports is produced by the scripts below and written
+to `results/`. Nothing is typed by hand.
 
 ## Requirements
 
@@ -76,17 +75,38 @@ that rebuild the lot.
 ## Reported objects
 
 Every number, table and figure reported in the article is produced by one of
-the scripts below and written to `results/`. Nothing is typed by hand.
+the scripts below and written to `results/` or `DATA/`.
 
 | Object | Produced by | Written to |
 |---|---|---|
 | Environment record | `scripts/record_environment.py` | `results/environment.json` |
-| Normalised benchmark inputs | `scripts/build_data.py` | `DATA/` |
-| Experiment results | `scripts/run_experiments.py` | `results/` |
+| Model inputs, with provenance and citations | `scripts/build_data.py` | `DATA/` |
+| Scarcity scan and sensitivity runs | `scripts/run_experiments.py` | `results/scan/<label>/` |
+| Result tables | `scripts/make_tables.py` | `results/tables/` |
 | Figures | `scripts/make_figures.py` | `results/figures/` |
+| Interactive appendix | `scripts/make_explorer.py` | `results/explorer.html` |
+| Journal readiness check | `scripts/check_submission.py` | printed, not stored |
 
-Rows are added as each step lands. A row is only added once the script
-exists and has been run.
+## Reproducing everything
+
+In this order; the whole sequence takes about twenty minutes, and the scan
+is nearly all of it.
+
+```
+python scripts/record_environment.py
+python scripts/build_data.py
+python scripts/run_experiments.py --fresh --bound-level-only \
+    --bound-tolerance 1e-9 --time-limit 300
+python scripts/make_tables.py
+python scripts/make_figures.py
+python scripts/make_explorer.py
+python scripts/check_submission.py
+```
+
+The scan writes each supply level the moment that level finishes, so a run
+stopped half way leaves a usable archive and the tables rebuild from
+whatever points are present. The last command ends with a single line
+saying whether every machine-checkable requirement is met.
 
 ## Determinism
 
@@ -99,24 +119,54 @@ and none of them is optional:
    on every run.
 3. All text output is written with `"\n"` pinned and JSON keys sorted.
 
+Determinism was measured, not assumed: at every solved supply level two
+independent runs of the tie-break stage agree to `0.000e+00` in the
+Euclidean norm, and the value is stored in each result file. One limit is
+stated rather than hidden — the claim holds **on one machine**. The `B1`
+baseline is an L1 projection whose optimal face is multi-vertex at tight
+points, so it can land on a different vertex at the same L1 distance on a
+different platform; `B4` and `B5` agree across platforms exactly.
+
 ## Layout
 
 ```
 src/faircanal/     the library
 src/faircanal/gui/ the results viewer, and nothing that computes
 scripts/           computation scripts
-DATA/              benchmark inputs, provenance and checksums
-results/           result JSON, tables, figures
+DATA/              model inputs, provenance and citations
+results/           result JSON, tables, figures, interactive appendix
 tests/             permanent tests, never deleted
 main.py            entry point
 ```
 
 ## Data
 
-`DATA/` contains normalised inputs derived from published, openly licensed
-sources, together with a provenance record naming each source, its licence
-and the access date, and SHA-256 checksums for every file. No confidential
-or person-level data is used anywhere in this study.
+`DATA/` holds every input the model takes, exported from the source so the
+canal behind `results/` can be read without opening a Python module. Each
+block carries one of three provenance labels, and they are not
+interchangeable: **observed** (published by someone else, with the citation
+travelling beside the numbers), **derived** (computed from something
+observed by a stated formula), **assumed** (chosen by this study because no
+published value was found). The canal geometry comes from Bonet et al.
+(2025), *Water* **17**(9):1368, `doi:10.3390/w17091368`, CC BY, with target
+depths from Litrico & Fromion (2004). No confidential or person-level data
+is used anywhere in this study.
+
+The export is a copy, and a copy that can go stale is worse than none, so
+`tests/test_data_export.py` rebuilds every exported value from the live
+objects and fails naming the field that drifted.
+
+## Licence
+
+The **code** — everything under `src/`, `scripts/`, `tests/` and `main.py` —
+is released under the MIT licence; see `LICENSE`.
+
+The **data and results** — everything under `DATA/` and `results/` — are
+released under Creative Commons Attribution 4.0 International
+(CC BY 4.0); see `LICENSE-DATA`. That is the licence of the published
+canal geometry this study builds on, so the attribution chain is kept
+intact: reuse of these files should cite both this package and Bonet et al.
+(2025).
 
 ## Citation
 

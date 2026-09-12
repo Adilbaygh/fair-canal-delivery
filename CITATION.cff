@@ -3,14 +3,35 @@ message: "If you use this software, please cite it as below."
 title: "Fair-Canal-Delivery: lexicographic max-min water delivery under deadline and capacity limits"
 type: software
 version: "0.1.0"
+date-released: "2026-09-12"
+abstract: >-
+  A reproducibility package for a study of fair water delivery on an
+  irrigation canal. Fairness is measured on the volume a user actually
+  receives inside an agreed delivery window rather than on the volume that
+  was scheduled: orders are reshaped before the low-pass filter that damps
+  wave dynamics, and the worst-off delivered fraction is maximised
+  lexicographically under the canal dynamics, gate saturation and reach
+  capacities. An order that cannot be met returns an infeasibility
+  certificate rather than an optimistic schedule. The package contains the
+  library, the computation scripts, the complete result archive with its
+  provenance record, the figures and tables the article reports, and a
+  desktop viewer that shows every number beside the file it came from.
 authors:
-  # The author list, its order, the affiliations, the corresponding author
-  # and the ORCID identifiers are decided by the corresponding author and
-  # filled in before the first release. Do not add, reorder or complete
-  # this list automatically.
-  - name: "TO BE COMPLETED BEFORE RELEASE"
-license: "TO BE COMPLETED BEFORE RELEASE"
-repository-code: "TO BE COMPLETED BEFORE RELEASE"
+  # Completed by the corresponding author on 2026-09-12. The list, its
+  # order, the affiliations and the identifiers are the author's to decide;
+  # do not add to, reorder or complete this list automatically.
+  - family-names: "Kudaybergenov"
+    given-names: "Adilbay Abatbaevich"
+    orcid: "https://orcid.org/0000-0002-2630-5182"
+    affiliation: "Karakalpak State University named after Berdakh"
+license:
+  # Two licences, because the repository holds two kinds of thing: the code
+  # is MIT, and the inputs and results are CC BY 4.0 - the licence of the
+  # published canal geometry they are derived from. See LICENSE and
+  # LICENSE-DATA.
+  - MIT
+  - CC-BY-4.0
+repository-code: "https://github.com/adilbaygm/fair-canal-delivery"
 keywords:
   - irrigation canal control
   - lexicographic max-min fairness
