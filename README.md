@@ -170,4 +170,29 @@ intact: reuse of these files should cite both this package and Bonet et al.
 
 ## Citation
 
-See `CITATION.cff`.
+The machine-readable form is `CITATION.cff`. In prose:
+
+> Kudaybergenov, A., Kazimbetova, M., Ametova, G., Ispanova, J., Absametov, B.,
+> Qudaynazarov, M., Shikhiyev, R., Urazimbetova, E., & Nurullaev, Z. (2026).
+> *Fair-Canal-Delivery: lexicographic max-min water delivery under deadline and
+> capacity limits* (Version 0.1.0) [Computer software]. Zenodo.
+> https://doi.org/10.5281/zenodo.22723843
+
+Zenodo mints two DOIs and they are not interchangeable:
+
+| DOI | Points at |
+|---|---|
+| `10.5281/zenodo.22723843` | **this version, 0.1.0** - cite this to name the exact code a number came from |
+| `10.5281/zenodo.22723842` | all versions - resolves to whichever is newest |
+
+The archived file is `fair-canal-delivery-0.1.0.zip`, built with `git archive`
+from the `v0.1.0` tag, `md5:4f227a235502ebcfbbe0b5c082c0d1b6`. Anyone can check
+that the archive and this repository hold the same 171 files by rebuilding it:
+
+```
+git archive --format=zip --prefix=fair-canal-delivery-0.1.0/ \
+    -o fair-canal-delivery-0.1.0.zip v0.1.0
+```
+
+The Zenodo **record** and both DOIs are public. The **files** are restricted
+while the article is under review, and open on acceptance.

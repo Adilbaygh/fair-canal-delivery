@@ -116,6 +116,16 @@ license:
   - MIT
   - CC-BY-4.0
 repository-code: "https://github.com/Adilbaygh/fair-canal-delivery"
+# The archive on Zenodo, published 2026-09-12. Two DOIs exist and they are
+# not interchangeable: the one below is *this version*, and citing it names
+# the exact code that produced a given number. The concept DOI under
+# `identifiers` resolves to whichever version is newest, which is what to
+# cite when the version does not matter.
+doi: "10.5281/zenodo.22723843"
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.22723842"
+    description: "Concept DOI - resolves to the latest version of this archive."
 keywords:
   - irrigation canal control
   - lexicographic max-min fairness
