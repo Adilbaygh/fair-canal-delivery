@@ -36,10 +36,16 @@ authors:
   # require them, and this file becomes public when the repository does.
   # The article publishes the addresses under the authors' own decision;
   # a public repository file should not publish them a second time.
+  #
+  # Two authors hold two affiliations each in the article (A.K. 1,2 and
+  # G.A. 1,3). CFF 1.2.0 gives a person a single `affiliation` string, so
+  # both are written in one field, separated by "; ", in the order the
+  # article lists them. The postal fields stay as each author gave them and
+  # are not a mapping of that order.
   - family-names: "Kudaybergenov"
     given-names: "Adilbay"
     orcid: "https://orcid.org/0000-0002-2630-5182"
-    affiliation: "Department of Information Systems and Technologies, Karakalpak State University named after Berdakh"
+    affiliation: "Department of Information Systems and Technologies, Karakalpak State University named after Berdakh; Department of Information Security, National University of Uzbekistan named after Mirzo Ulugbek"
     address: "1 Ch. Abdirov St."
     city: "Nukus"
     post-code: "230112"
@@ -55,7 +61,7 @@ authors:
   - family-names: "Ametova"
     given-names: "Gulsara"
     orcid: "https://orcid.org/0009-0003-6824-2559"
-    affiliation: 'Department of Digital Technologies and Artificial Intelligence, "Tashkent Institute of Irrigation and Agricultural Mechanization Engineers" National Research University'
+    affiliation: 'Department of Information Systems and Technologies, Karakalpak State University named after Berdakh; Department of Digital Technologies and Artificial Intelligence, "Tashkent Institute of Irrigation and Agricultural Mechanization Engineers" National Research University'
     address: "39 Kari Niyaziy St."
     city: "Tashkent"
     post-code: "100000"

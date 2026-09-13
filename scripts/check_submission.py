@@ -54,11 +54,14 @@ FIGURES = (
     "fig4_budget",
 )
 TABLES = ("table1_scan", "table2_shares", "table3_sensitivity")
+#: Each back-matter statement, with the class command that produces it. The
+#: MDPI class takes them as commands, so the printed heading never appears in
+#: the source and searching for the heading alone reports them all missing.
 BACK_MATTER = (
-    "Author Contributions",
-    "Funding",
-    "Data Availability Statement",
-    "Conflicts of Interest",
+    ("Author Contributions", "\\authorcontributions"),
+    ("Funding", "\\funding"),
+    ("Data Availability Statement", "\\dataavailability"),
+    ("Conflicts of Interest", "\\conflictsofinterest"),
 )
 
 PASS, FAIL, PENDING = "PASS", "FAIL", "PENDING"
@@ -289,27 +292,62 @@ def check_size(root: Path, report: Report) -> None:
     )
 
 
+def _abstract_body(text: str) -> "str | None":
+    """The abstract, in whichever of the two forms the class uses.
+
+    The MDPI class takes the abstract as an argument, ``\\abstract{...}``,
+    not as an environment, so the braces have to be matched rather than
+    pattern-matched: the abstract itself contains braces.
+    """
+    env = re.search(r"\\begin\{abstract\}(.*?)\\end\{abstract\}", text, re.S)
+    if env:
+        return env.group(1)
+    start = re.search(r"\\abstract\{", text)
+    if not start:
+        return None
+    depth, index = 1, start.end()
+    while index < len(text) and depth:
+        depth += {"{": 1, "}": -1}.get(text[index], 0)
+        index += 1
+    return text[start.end(): index - 1]
+
+
+def _word_count(body: str) -> int:
+    """Words as a reader counts them, not as a regular expression does.
+
+    Commands are dropped rather than counted, and a decimal number is one
+    word: splitting on non-word characters turns 0.048 into two, which
+    inflates the count of a results-bearing abstract by several words.
+    """
+    plain = re.sub(r"\\[a-zA-Z]+\*?", " ", body)
+    for brace in "{}~":
+        plain = plain.replace(brace, " ")
+    return len([w for w in plain.split() if any(c.isalnum() for c in w)])
+
+
 def check_manuscript(root: Path, report: Report) -> None:
     """Whatever depends on a manuscript that may not exist yet."""
-    candidates = sorted(root.glob("manuscript*.tex")) + sorted(
-        (root / "paper").glob("*.tex")
-    ) if (root / "paper").exists() else sorted(root.glob("manuscript*.tex"))
+    candidates = sorted(root.glob("manuscript*.tex"))
+    paper = root / "paper"
+    if paper.exists():
+        candidates += sorted(paper.glob("manuscript*.tex"))
+        candidates += sorted(paper.glob("*/manuscript*.tex"))
     if not candidates:
         for what in ("abstract length", "keyword count", "back-matter statements"):
             report.add(PENDING, what, "no manuscript yet")
         return
     text = candidates[0].read_text(encoding="utf-8", errors="replace")
 
-    abstract = re.search(r"\\begin\{abstract\}(.*?)\\end\{abstract\}", text, re.S)
-    if abstract:
-        words = len(re.findall(r"\b[\w'-]+\b", abstract.group(1)))
+    body = _abstract_body(text)
+    if body is not None:
+        words = _word_count(body)
         report.ok(
             words <= ABSTRACT_WORDS, "abstract length",
             f"{words} words, at or under {ABSTRACT_WORDS}",
             f"{words} words, over the {ABSTRACT_WORDS}-word limit",
         )
     else:
-        report.add(PENDING, "abstract length", "no abstract environment found")
+        report.add(PENDING, "abstract length", "no abstract found")
 
     keywords = re.search(r"\\keyword[s]?\{(.*?)\}", text, re.S)
     if keywords:
@@ -323,12 +361,29 @@ def check_manuscript(root: Path, report: Report) -> None:
     else:
         report.add(PENDING, "keyword count", "no keywords found")
 
-    missing = [name for name in BACK_MATTER if name.lower() not in text.lower()]
-    report.ok(
-        not missing, "back-matter statements",
-        "all four present",
-        "missing: " + ", ".join(missing),
-    )
+    lowered = text.lower()
+    missing = [
+        name for name, command in BACK_MATTER
+        if name.lower() not in lowered and command not in text
+    ]
+    unfinished = [
+        name for name, command in BACK_MATTER
+        if command in text and re.search(
+            re.escape(command) + r"\{[^{}]*TODO", text, re.S
+        )
+    ]
+    if missing:
+        report.ok(
+            False, "back-matter statements",
+            "all four present", "missing: " + ", ".join(missing),
+        )
+    elif unfinished:
+        report.add(
+            PENDING, "back-matter statements",
+            "present but still marked TODO: " + ", ".join(unfinished),
+        )
+    else:
+        report.ok(True, "back-matter statements", "all four present", "")
 
 
 def main() -> int:
