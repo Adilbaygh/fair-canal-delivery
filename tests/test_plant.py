@@ -71,10 +71,9 @@ def test_the_map_reproduces_a_direct_simulation():
         hold @ orders.T,
         law=law(reference.steps),
     )
-    assert reference.levels_at(orders) == pytest.approx(
-        direct.levels[: reference.steps], abs=1e-11
-    )
+    assert reference.levels_at(orders) == pytest.approx(direct.levels, abs=1e-11)
     assert reference.commands_at(orders) == pytest.approx(direct.commanded, abs=1e-10)
+    assert reference.applied_at(orders) == pytest.approx(direct.applied, abs=1e-10)
     assert reference.delivered_at(orders) == pytest.approx(
         direct.offtake_applied, abs=1e-11
     )

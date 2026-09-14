@@ -14,8 +14,11 @@ from functools import lru_cache
 
 import numpy as np
 import pytest
+from scipy import sparse
+from scipy.optimize import linprog
 
 from faircanal.benchmarks import haughton_filter
+from faircanal.config import LP_METHOD, LP_OPTIONS
 from faircanal.closedloop import simulate_closed_loop
 from faircanal.control import control_law
 from faircanal.delivery import hold_matrix
@@ -141,8 +144,9 @@ def test_the_programme_and_the_loop_agree():
             list(plant().design_models), plant().weights, horizon=model.steps
         ),
     )
-    assert model.levels_at(z) == pytest.approx(direct.levels[: model.steps], abs=1e-10)
+    assert model.levels_at(z) == pytest.approx(direct.levels, abs=1e-10)
     assert model.commands_at(z) == pytest.approx(direct.commanded, abs=1e-9)
+    assert model.applied_at(z) == pytest.approx(direct.applied, abs=1e-9)
 
 
 # ---------------------------------------------------------------------------
@@ -171,13 +175,52 @@ def test_leximin_lifts_the_worst_off_and_pays_for_it():
     assert lex.sum() < util.sum()
     assert (util.sum() - lex.sum()) / util.sum() < 0.10
     assert lex.min() > 0.8 and util.min() < 0.7
-    assert lex.max() - lex.min() < 1e-6, "the fair answer is not equal after all"
+    # Not "and they all get the same". They do at some operating points
+    # and not at others, and which it is belongs to the instance rather
+    # than to the criterion: once the users that can go no higher have
+    # saturated, leximin goes on raising the ones that can, which is the
+    # second stage doing its job. Here seven users sit at the common level
+    # and one sits above it.
+    #
+    # What the criterion does promise is that no feasible schedule lifts
+    # the worst-off user any further, and that is checked directly against
+    # a programme written the other way round - maximise the common floor -
+    # rather than against the staged procedure that produced it.
+    floor = linprog(
+        np.concatenate([np.zeros(model.ratio.n_vars), [-1.0]]),
+        A_ub=sparse.vstack(
+            [
+                sparse.hstack(
+                    [model.ratio.a_ub, sparse.csr_matrix((model.ratio.a_ub.shape[0], 1))]
+                ),
+                sparse.hstack(
+                    [-model.ratio.ratio_rows, np.ones((model.ratio.n_users, 1))]
+                ),
+            ],
+            format="csr",
+        ),
+        b_ub=np.concatenate([model.ratio.b_ub, model.ratio.ratio_offset]),
+        bounds=(*model.ratio.bounds, (None, None)),
+        method=LP_METHOD,
+        options=dict(LP_OPTIONS),
+    )
+    assert floor.status == 0
+    assert lex.min() == pytest.approx(floor.x[-1], abs=2e-6), (
+        "the staged procedure did not reach the highest common floor"
+    )
     assert util.max() - util.min() > 0.35, "the utilitarian answer is no longer uneven"
 
 
 def test_scarcity_lowers_the_fraction_everyone_gets():
-    """Less water, lower minimum - monotone, and it has to be."""
-    fractions = [solved(level).ratios.min() for level in (1.0, 0.9, 0.7, 0.5)]
+    """Less water, lower minimum - monotone, and it has to be.
+
+    The six-block instance of this file is tighter than the eight-block
+    one the article reports, and with the gate limit and the storage
+    state in place its last feasible point is sixty per cent rather than
+    fifty. That is a property of this fixture, not a finding; the scan the
+    article runs is in ``scripts/run_experiments.py``.
+    """
+    fractions = [solved(level).ratios.min() for level in (1.0, 0.9, 0.7, 0.6)]
     assert fractions == sorted(fractions, reverse=True)
     assert fractions[0] == pytest.approx(1.0, abs=1e-6)
     assert fractions[-1] < 0.85
@@ -267,12 +310,17 @@ def test_the_cap_stops_over_delivery_from_scoring():
 
 def test_the_announcement_pins_the_blocks_before_it():
     net = corning_cascade()
+    # The lead is four blocks here, not the usual two: an announcement
+    # that arrives in the block the restriction takes effect in leaves the
+    # users no notice, and the scenario refuses it rather than handing the
+    # solver an empty polytope - see
+    # ``test_the_announcement_must_precede_the_restriction``.
     late = one_user_per_gate(
         net,
         BLOCKS,
         limits(),
         source_discharge_m3_s=0.7 * net.aggregate_demand,
-        lead_blocks=LEAD,
+        lead_blocks=4,
         announced_block=3,
     )
     model = assemble(late, mapping())

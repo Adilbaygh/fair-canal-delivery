@@ -31,14 +31,18 @@ import pytest
 
 from faircanal.benchmarks import haughton_filter
 from faircanal.config import (
+    ANNOUNCE_BLOCKS,
+    BAND_TOLERANCE_M,
     DT_BLOCK_S,
     DT_PLANT_S,
+    GATE_HEAD_M,
+    OUTLET_HEADROOM,
     R_CAP,
     SETTLE_MARGIN_STEPS,
     STEPS_PER_BLOCK,
 )
 from faircanal.delivery import memory_steps
-from faircanal.geometry import uniform_discharge
+from faircanal.geometry import corning_gate_limits, uniform_discharge
 from faircanal.network import corning_cascade
 from faircanal.provenance import repo_root
 
@@ -118,6 +122,47 @@ def test_the_derived_columns_are_derived_the_way_the_model_derives_them():
         assert float(row["level_band_high_m"]) == pytest.approx(band, abs=TOL)
         assert float(row["level_band_low_m"]) == pytest.approx(-band, abs=TOL)
         assert float(row["travel_rate_m3_s"]) == pytest.approx(0.25 * full, rel=1e-9)
+
+
+def test_the_gate_the_export_names_is_the_gate_the_programme_uses():
+    """The narrower of the two limits has to be in the published table.
+
+    On seven of this canal's eight reaches the check gate passes less than
+    the reach conveys, so a table that listed only the conveyance would
+    describe a canal whose gates are wider than the ones in the source's
+    own table - and a reader recomputing the results from it would get a
+    more generous canal than the one that produced them.
+    """
+    limits = corning_gate_limits(GATE_HEAD_M)
+    table = rows()
+    assert len(limits) == len(table)
+    narrower = 0
+    for gate, row in zip(limits, table):
+        cell = row["gate_capacity_m3_s"]
+        if cell == "":
+            # The head of the canal: a heading structure, no published gate.
+            assert gate == float("inf")
+            continue
+        assert float(cell) == pytest.approx(gate, rel=1e-9)
+        if gate < float(row["capacity_m3_s"]):
+            narrower += 1
+    assert narrower == 7, (
+        f"the gate binds on {narrower} reaches rather than seven - either the "
+        f"head or the gate table has moved, and the article says seven"
+    )
+    block = payload()["limits"]
+    assert block["gate_head_m"] == pytest.approx(GATE_HEAD_M, abs=TOL)
+    assert block["storage_band_m"] == pytest.approx(BAND_TOLERANCE_M, abs=TOL)
+    assert "measured" in block["storage_band_provenance"]
+
+
+def test_the_scenario_block_carries_the_settings_the_scan_runs_with():
+    block = payload()["scenario"]
+    assert block["announce_block"] == ANNOUNCE_BLOCKS
+    assert block["outlet_headroom"] == pytest.approx(OUTLET_HEADROOM, abs=TOL)
+    assert block["announce_block"] < block["lead_blocks"], (
+        "the shortage would be announced in the block it takes effect in"
+    )
 
 
 def test_the_filter_in_the_export_is_the_filter_in_the_study():

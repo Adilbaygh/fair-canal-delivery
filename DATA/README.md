@@ -18,10 +18,17 @@ interchangeable:
   in the file.
 - **derived** - computed from something observed by a stated formula. The
   conveyance capacity of each reach is the uniform discharge at full
-  supply level; the level band is the canal depth minus the target level.
+  supply level; each check gate's discharge is the published gate table
+  read at an assumed head drop; the level band is the canal depth minus
+  the target level.
 - **assumed** - chosen by this study because no published value was found.
-  The gate travel rate, the warm-up, the delivery window and the filter
-  are assumed, and every result that depends on them says so.
+  The head the gates are rated at, the gate travel rate, the warm-up, the
+  outlet headroom, the delivery window and the filter are assumed, and
+  every result that depends on them says so.
+- **measured** - a number this study obtained by running its own model and
+  reading the answer off it, rather than choosing it. The width the two
+  storage accounts are reconciled to is the only one, and
+  `scripts/check_storage_band.py` is the measurement.
 
 ## These files are exported, not read
 

@@ -63,6 +63,7 @@ from dataclasses import dataclass
 import numpy as np
 from scipy import sparse
 
+from faircanal.config import CONVEYANCE_EFFICIENCY
 from faircanal.leximin import RatioProgramme
 from faircanal.plant import CanalPlant
 from faircanal.programme import Programme
@@ -206,8 +207,11 @@ def _pool_rows(
     indptr = offtake_rows.indptr
     indices = offtake_rows.indices
     data = offtake_rows.data
+    # The baseline level array carries one sample more than the run has
+    # steps - the level the run starts from, and one after each step - so
+    # it is reshaped against that length and not against ``steps``.
     initial = np.asarray(programme.response.baseline_levels, dtype=float).reshape(
-        steps, size
+        programme.response.level_steps, size
     )[0]
 
     rows, cols, values = [], [], []
@@ -313,6 +317,94 @@ def _offtake_rows(programme: Programme) -> sparse.csr_matrix:
     return sparse.csr_matrix(spread_to_steps @ programme.spread)
 
 
+def _storage_rows_free(
+    programme: Programme,
+    offset_applied: int,
+    offset_level: int,
+    columns: int,
+) -> "tuple[sparse.csr_matrix, np.ndarray]":
+    """C9 and C9' written against the free-gate programme's own variables.
+
+    The recursion is the one :mod:`faircanal.programme` documents. What
+    differs is only where the quantities live: the volume that passed a
+    gate in a block is a sum of applied-flow columns, and the mean level
+    of a pool over a block is a mean of level columns, so the running
+    storage total is a sum of columns rather than a product with the
+    response map.
+    """
+    response = programme.response
+    scenario = programme.scenario
+    size, blocks = response.size, response.blocks
+    steps, per_block = response.steps, response.steps_per_block
+    dt = scenario.dt_s
+    lags = response.transport_lag
+    span = blocks + 1
+    rows = size * span
+
+    storage = np.zeros((rows, columns))
+    mean_level = np.zeros((rows, columns))
+    gamma = response.delivery
+
+    block_volume = np.array(
+        [
+            dt * gamma[block * per_block : (block + 1) * per_block].sum(axis=0)
+            for block in range(blocks)
+        ]
+    )
+
+    for pool in range(size):
+        lag = lags[pool]
+        net = np.zeros((blocks, columns))
+        for block in range(blocks):
+            window = np.arange(block * per_block, (block + 1) * per_block)
+            arrived = window - lag
+            arrived = arrived[arrived >= 0]
+            for step in arrived:
+                net[block, offset_applied + step * size + pool] += (
+                    CONVEYANCE_EFFICIENCY * dt
+                )
+            if pool >= 1:
+                for step in window:
+                    net[block, offset_applied + step * size + (pool - 1)] -= dt
+        for order, user in enumerate(scenario.users):
+            if user.node - 1 != pool:
+                continue
+            columns_of_user = slice(order * blocks, (order + 1) * blocks)
+            for block in range(blocks):
+                net[block, columns_of_user] -= block_volume[block]
+        running = np.zeros(columns)
+        for block in range(blocks):
+            storage[pool * span + block] = running
+            running = running + net[block]
+        storage[pool * span + blocks] = running
+        for block in range(span):
+            first = min(block * per_block, steps - per_block)
+            for step in range(first, first + per_block):
+                mean_level[pool * span + block, offset_level + step * size + pool] += (
+                    1.0 / per_block
+                )
+
+    area = np.array(response.storage_area)
+    pools = scenario.network.reaches
+    nominal_storage = area * np.array([reach.pool.target_level_m for reach in pools])
+    full_storage = area * np.array([reach.pool.canal_depth_m for reach in pools])
+    reconcile = storage - np.repeat(area, span)[:, None] * mean_level
+    epsilon = np.repeat(area * scenario.limits.band_tolerance_m, span)
+
+    a_ub = sparse.csr_matrix(
+        np.vstack([storage, -storage, reconcile, -reconcile])
+    )
+    b_ub = np.concatenate(
+        [
+            np.repeat(full_storage - nominal_storage, span),
+            np.repeat(nominal_storage, span),
+            epsilon,
+            epsilon,
+        ]
+    )
+    return a_ub, b_ub
+
+
 def free_gate_programme(programme: Programme, plant: CanalPlant) -> FreeGatePlant:
     """Write the same experiment down with the gate commands set free.
 
@@ -367,6 +459,13 @@ def free_gate_programme(programme: Programme, plant: CanalPlant) -> FreeGatePlan
     values_ub = list(order_values)
 
     # --- C6: no gate moves faster than it can -----------------------------
+    #
+    # On the applied flow and over every step, which is what the
+    # substituted programme bounds. Written on the command instead - as it
+    # was - this is the tighter constraint by a factor of several, because
+    # the command swings far harder than the water does, and a bound whose
+    # feasible set is *smaller* than the closed loop's is not a bound at
+    # all: the closed loop's own answer falls outside it.
     warm = scenario.limits.warm_up_steps
     if warm >= steps:
         raise UpperBoundError(
@@ -376,14 +475,14 @@ def free_gate_programme(programme: Programme, plant: CanalPlant) -> FreeGatePlan
     rows, cols, values = [], [], []
     limits = []
     row = 0
-    for step in range(warm + 1, steps):
+    for step in range(1, steps):
         for node in range(1, size + 1):
             for sign in (1.0, -1.0):
                 rows.extend([row, row])
                 cols.extend(
                     [
-                        _index(offset_command, step, node, size),
-                        _index(offset_command, step - 1, node, size),
+                        _index(offset_applied, step, node, size),
+                        _index(offset_applied, step - 1, node, size),
                     ]
                 )
                 values.extend([sign, -sign])
@@ -408,19 +507,45 @@ def free_gate_programme(programme: Programme, plant: CanalPlant) -> FreeGatePlan
     a_eq = sparse.vstack([filter_a, pool_a], format="csr")
     b_eq = np.concatenate([filter_b, pool_b])
 
-    # --- bounds: C1 and C4 on the order, C5 and C7 on their own variables --
+    # --- bounds: C1 and C4 on the order, C5, C5' and C7 on their own ------
+    #
+    # Each of the three is a bound here rather than a row, because the
+    # quantity it limits is a variable of this programme instead of an
+    # affine function of the order. The warm-up reaches C7 and nothing
+    # else, exactly as it does in the substituted programme: a gate that
+    # cannot pass the water cannot pass it in the first quarter of an hour
+    # either, and a bound that disagreed with its counterpart would make
+    # this a bound on a different problem.
     command_bounds = scenario.limits.command_bounds
+    flow_bounds = scenario.limits.flow_bounds
     band = scenario.limits.level_band_m
     bounds: list[tuple[float | None, float | None]] = list(programme.ratio.bounds)
     for step in range(steps):
         for node in range(1, size + 1):
-            bounds.append(
-                (None, None) if step < warm else command_bounds[node - 1]
-            )
-    bounds.extend([(None, None)] * grid)  # the applied flow is determined
+            bounds.append(command_bounds[node - 1])
+    for step in range(steps):
+        for node in range(1, size + 1):
+            bounds.append(flow_bounds[node - 1])
     for step in range(steps):
         for node in range(1, size + 1):
             bounds.append((None, None) if step < warm else band[node - 1])
+
+    # --- C9 and C9': the storage state, in this programme's variables -----
+    #
+    # The substituted programme has to write these as affine functions of
+    # the order; here the applied flows and the levels are variables, so
+    # the same two families are a straight linear combination of columns.
+    # They belong here for the same reason every other physical row does:
+    # M1 is a bound only if its feasible set contains the closed loop's,
+    # and a set that has dropped a constraint the closed loop obeys is a
+    # larger set that answers a different question.
+    storage_a, storage_b = _storage_rows_free(
+        programme, offset_applied, offset_level, columns
+    )
+    a_ub = sparse.vstack([a_ub, storage_a], format="csr")
+    b_ub = np.concatenate([b_ub, storage_b])
+    counts["C9 pool storage between empty and full"] = storage_a.shape[0] // 2
+    counts["C9' storage agrees with the level"] = storage_a.shape[0] // 2
 
     ratio_rows = sparse.hstack(
         [programme.ratio.ratio_rows, sparse.csr_matrix((n_users, columns - n_orders))],

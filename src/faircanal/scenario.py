@@ -71,8 +71,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from faircanal.config import (
+    ANNOUNCE_BLOCKS,
+    BAND_TOLERANCE_M,
     D_MIN_M3,
     DT_PLANT_S,
+    OUTLET_HEADROOM,
     R_CAP,
     SETTLE_MARGIN_STEPS,
     STEPS_PER_BLOCK,
@@ -166,14 +169,26 @@ class Limits:
     is therefore ``derived``; the level band, the gate travel rate and the
     warm-up are ``assumed`` and have to be reported with any result they
     produced.
+
+    ``band_tolerance_m`` is the width C9' reconciles the two accounts of
+    the same water to: the volume that went in and out of a pool, and the
+    volume its mean level says it holds. It is a *measured* quantity, not
+    a chosen one - ``scripts/check_storage_band.py`` runs the criterion
+    and reads the discrepancy off the schedule the criterion itself picks
+    - and it lives here rather than in :mod:`faircanal.config` because it
+    describes this canal under this model, so a sensitivity run that
+    widens or narrows it is describing a different canal and the digest
+    has to say so.
     """
 
     capacity_m3_s: tuple[float, ...]
     nominal_m3_s: tuple[float, ...]
     level_band_m: tuple[tuple[float, float], ...]
     travel_rate_m3_s: tuple[float, ...]
+    gate_capacity_m3_s: "tuple[float, ...] | None" = None
+    band_tolerance_m: float = BAND_TOLERANCE_M
     warm_up_steps: int = 0
-    provenance: str = "derived capacity, assumed band and travel rate"
+    provenance: str = "derived capacity and gate limit, assumed band and travel rate"
 
     def __post_init__(self) -> None:
         size = len(self.capacity_m3_s)
@@ -203,6 +218,28 @@ class Limits:
                 )
         if any(rate <= 0.0 for rate in self.travel_rate_m3_s):
             raise ScenarioError("a gate that cannot move has no travel rate")
+        if self.gate_capacity_m3_s is not None:
+            if len(self.gate_capacity_m3_s) != size:
+                raise ScenarioError(
+                    f"gate_capacity_m3_s has {len(self.gate_capacity_m3_s)} "
+                    f"entries for {size} reaches"
+                )
+            for index, (gate, nominal) in enumerate(
+                zip(self.gate_capacity_m3_s, self.nominal_m3_s), start=1
+            ):
+                if gate <= nominal:
+                    raise ScenarioError(
+                        f"reach {index}: its gate passes {gate:.3f} m^3/s at the "
+                        f"declared head, which is not above the {nominal:.3f} "
+                        f"m^3/s it already carries, so no order can be filled"
+                    )
+        if self.band_tolerance_m <= 0.0:
+            raise ScenarioError(
+                "the two accounts of the same water are reconciled to within a "
+                "band, and a band of zero or less says the pool's mean level "
+                "and its volume agree exactly, which no lumped model of a "
+                "canal does"
+            )
         if self.warm_up_steps < 0:
             raise ScenarioError("a warm-up cannot be negative")
 
@@ -211,12 +248,41 @@ class Limits:
         return len(self.capacity_m3_s)
 
     @property
-    def command_bounds(self) -> tuple[tuple[float, float], ...]:
-        """Lower and upper bound on each gate's flow deviation.
+    def flow_bounds(self) -> tuple[tuple[float, float], ...]:
+        """C5: what the gate may actually pass, as a flow deviation.
 
-        The two constraints the model document merges: a reach cannot carry
-        more than it conveys, and a gate cannot pass less than nothing.
-        Both act on the same variable, so they are one bound.
+        Two physical limits on the same variable, so one bound: the reach
+        cannot carry more than it conveys, and the gate cannot pass more
+        than its orifice lets through at the head it works under. Whichever
+        is smaller is the one that binds; on the upper reaches of this
+        canal that is the gate.
+
+        The lower bound is the same in both readings - a gate cannot pass
+        less than nothing, so the deviation cannot go below minus the
+        nominal discharge.
+        """
+        gates = self.gate_capacity_m3_s
+        if gates is None:
+            gates = self.capacity_m3_s
+        return tuple(
+            (-nominal, min(capacity, gate) - nominal)
+            for capacity, gate, nominal in zip(
+                self.capacity_m3_s, gates, self.nominal_m3_s
+            )
+        )
+
+    @property
+    def command_bounds(self) -> tuple[tuple[float, float], ...]:
+        """C5': the region in which the linear model is the model.
+
+        Written on what the controller *asks* for, not on what the filter
+        lets through, and it is a different constraint from C5 rather than
+        a restatement of it. The command swings several times harder than
+        the applied flow - on this canal between three and eight times per
+        unit of order - so a schedule that keeps the applied flow inside
+        the conveyance can still demand a command far outside the range the
+        pool models were identified over, and outside it the answer is not
+        a statement about this canal at all.
         """
         return tuple(
             (-nominal, capacity - nominal)
@@ -383,7 +449,8 @@ def one_user_per_gate(
     window: "tuple[int, int] | None" = None,
     demand_scale: float = 1.0,
     lead_blocks: int = 0,
-    announced_block: int = 0,
+    announced_block: int = ANNOUNCE_BLOCKS,
+    outlet_headroom: float = OUTLET_HEADROOM,
     overshoot: float = 0.0,
     steps_per_block: int = STEPS_PER_BLOCK,
     dt_s: float = DT_PLANT_S,
@@ -421,6 +488,15 @@ def one_user_per_gate(
 
     horizon = horizon_for(blocks, steps_per_block, settle_margin)
     lead = lead_blocks * steps_per_block
+    if lead_blocks and announced_block >= lead_blocks:
+        raise ScenarioError(
+            f"orders may not be re-shaped before block {announced_block}, but the "
+            f"restriction takes effect at block {lead_blocks}: the users would be "
+            f"told about the shortage at the moment it arrived. With a filter "
+            f"between an order and the water, no schedule exists, and the "
+            f"infeasibility would read as a finding about the canal rather than "
+            f"about the notice"
+        )
     if window is None:
         window = (lead, horizon - 1)
     users = []
@@ -436,6 +512,7 @@ def one_user_per_gate(
                 demand_m3=demand_scale * reach.offtake_m3_s * steps * dt_s,
                 window=window,
                 announced_block=announced_block,
+                max_order_m3_s=outlet_headroom * reach.offtake_m3_s,
                 overshoot=overshoot,
             )
         )

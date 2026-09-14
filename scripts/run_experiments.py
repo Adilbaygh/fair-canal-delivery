@@ -58,12 +58,33 @@ could drift from it:
 
 H8, the wave-damping estimate, needs a hook in the identification that
 does not exist yet, and is not pretended here.
+
+The four settings the eleven-family programme added are assumptions in
+exactly the same sense, so they move the same way and are reported the
+same way:
+
+    --label kappa125 --outlet-headroom 1.25   C4, the outlet's own rate
+    --label head005  --gate-head 0.05         C5, the head the gates pass at
+    --label band010  --band 0.10              C9', how far the two accounts
+                                              of the same water may differ
+    --label ann0     --announce 0             when the shortage is told
+
+and two more change the canal rather than a setting, for the runs that
+ask what binds when the canal, not the source, is the tight thing:
+
+    --cap-scale 0.1 --demand-scale 1.15
+
+Every one of them prints "NOT the pre-registered run" on the way past and
+is written into each point's JSON, because a number that came out of a
+moved assumption and a number that came out of the frozen one are not the
+same number and must not be able to end up in the same table unlabelled.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 import time
 from pathlib import Path
@@ -85,13 +106,22 @@ from faircanal.baselines import (  # noqa: E402
 )
 from faircanal.certificate import certify  # noqa: E402
 from faircanal.config import (  # noqa: E402
+    ANNOUNCE_BLOCKS,
+    BAND_TOLERANCE_M,
+    BLOCKS,
     DT_PLANT_S,
+    GATE_HEAD_M,
+    LEAD_BLOCKS,
+    OUTLET_HEADROOM,
     SETTLE_MARGIN_STEPS,
     STEPS_PER_BLOCK,
+    TRAVEL_FRACTION,
+    WARM_UP_STEPS,
+    scenario_settings,
 )
 from faircanal.control import control_law  # noqa: E402
 from faircanal.delivery import FilterSpec, memory_steps  # noqa: E402
-from faircanal.geometry import uniform_discharge  # noqa: E402
+from faircanal.geometry import corning_gate_limits, uniform_discharge  # noqa: E402
 from faircanal.config import LP_METHOD, LP_OPTIONS  # noqa: E402
 from faircanal.leximin import (  # noqa: E402
     LeximinError,
@@ -108,10 +138,14 @@ from faircanal.scenario import Limits, one_user_per_gate  # noqa: E402
 # Sections 1.1 to 1.5 of it. These are not defaults to be tuned; changing
 # one means the run is no longer the pre-registered one, which is why every
 # override says so on the way past.
-BLOCKS = 8
-LEAD_BLOCKS = 2
-WARM_UP_STEPS = 15
-TRAVEL_FRACTION = 0.25
+#
+# They are imported rather than written out again. They used to be written
+# out again, and a copy of a constant is a constant only until somebody
+# edits one of the two: the horizon, the lead and the warm-up sat in this
+# file *and* in ``faircanal.config``, so a study whose settings moved in
+# one place would have gone on reporting the other. The only numbers still
+# declared here are the ones no module needs - the filter the study was
+# registered with, and the scan itself.
 FILTER_ORDER = 3
 CUTOFF_RAD_PER_S = 3.0e-3
 OVERSHOOT = 0.0
@@ -125,12 +159,40 @@ CODES = ("B1", "B2", "B3", "B4", "B5", "M1")
 # ---------------------------------------------------------------------------
 
 
-def make_limits(network) -> Limits:
-    """Section 1.4: conveyance derived, the rest declared as assumed."""
+def make_limits(
+    network,
+    *,
+    gate_head_m: float = GATE_HEAD_M,
+    cap_scale: float = 1.0,
+    band_tolerance_m: float = BAND_TOLERANCE_M,
+) -> Limits:
+    """Section 1.4: conveyance derived, the gate derived, the rest assumed.
+
+    Two different limits stand between the source and a user's outlet, and
+    until this rework only one of them was here. The reach conveys what its
+    geometry conveys at full supply level - that is ``capacity_m3_s`` - but
+    the water has to pass a check gate to get into it, and the gate is the
+    narrower of the two on seven of this canal's eight reaches. A study
+    that wrote down only the reach's conveyance was solving a canal whose
+    gates are wider than the ones in the source's own table, which is a
+    more generous canal than the real one and therefore the wrong canal to
+    report a fairness guarantee for.
+
+    ``gate_head_m`` is the head drop the gate limit is read at. It is
+    assumed, not published, so it is a flag with a frozen default and the
+    value used is recorded with the results; ``cap_scale`` exists for the
+    scarcity sensitivity runs, where the interesting question is what
+    binds when the canal, rather than the source, is the tight thing.
+    """
     full = [
-        uniform_discharge(reach.pool, reach.pool.canal_depth_m)
+        cap_scale * uniform_discharge(reach.pool, reach.pool.canal_depth_m)
         for reach in network.reaches
     ]
+    gates = corning_gate_limits(gate_head_m)
+    if len(gates) != len(full):
+        raise SystemExit(
+            f"the gate table has {len(gates)} entries for {len(full)} reaches"
+        )
     return Limits(
         capacity_m3_s=tuple(full),
         nominal_m3_s=network.steady_discharges,
@@ -142,6 +204,8 @@ def make_limits(network) -> Limits:
             for reach in network.reaches
         ),
         travel_rate_m3_s=tuple(TRAVEL_FRACTION * value for value in full),
+        gate_capacity_m3_s=tuple(gates),
+        band_tolerance_m=band_tolerance_m,
         warm_up_steps=WARM_UP_STEPS,
     )
 
@@ -225,6 +289,51 @@ def describe(answer, names, seconds: float) -> dict:
     return plain(record)
 
 
+def describe_instance(
+    scenario,
+    limits,
+    programme,
+    *,
+    announced_block: int,
+    outlet_headroom: float,
+    demand_scale: float,
+) -> dict:
+    """What this point was solved on, to sit beside what came out of it.
+
+    A result whose instance has to be reconstructed from the flags in the
+    shell history is a result nobody can check. Every quantity that the
+    rework made movable is written here, in the record, next to the
+    answer it produced.
+
+    A gate that is infinite - the heading structure, for which the source
+    publishes no gate - is written as null rather than as the string
+    "Infinity", which is what :func:`json.dump` emits and what no reader
+    outside Python will accept. Null says "none published"; a large
+    number would say "this wide", and those are different claims.
+    """
+    return plain(
+        {
+            "announced_block": announced_block,
+            "outlet_headroom": outlet_headroom,
+            "demand_scale": demand_scale,
+            "band_tolerance_m": limits.band_tolerance_m,
+            "demand_m3": float(scenario.aggregate_demand_m3),
+            "capacity_m3_s": [float(value) for value in limits.capacity_m3_s],
+            "gate_capacity_m3_s": [
+                float(value) if math.isfinite(value) else None
+                for value in (limits.gate_capacity_m3_s or ())
+            ],
+            "max_order_m3_s": [
+                None if user.max_order_m3_s is None else float(user.max_order_m3_s)
+                for user in scenario.users
+            ],
+            "row_counts": dict(programme.row_counts),
+            "rows": int(programme.ratio.a_ub.shape[0]),
+            "variables": int(programme.ratio.n_vars),
+        }
+    )
+
+
 def describe_certificate(certificate) -> dict:
     return plain(
         {
@@ -272,6 +381,9 @@ def run_point(
     record: dict,
     overshoot: float,
     settle_margin: int = SETTLE_MARGIN_STEPS,
+    announced_block: int = ANNOUNCE_BLOCKS,
+    outlet_headroom: float = OUTLET_HEADROOM,
+    demand_scale: float = 1.0,
     bound_method: str | None = None,
     bound_options: dict | None = None,
     bound_level_only: bool = False,
@@ -302,7 +414,10 @@ def run_point(
         limits,
         source_discharge_m3_s=fraction * network.aggregate_demand,
         window=window,
+        demand_scale=demand_scale,
         lead_blocks=LEAD_BLOCKS,
+        announced_block=announced_block,
+        outlet_headroom=outlet_headroom,
         overshoot=overshoot,
         settle_margin=settle_margin,
     )
@@ -315,6 +430,14 @@ def run_point(
     record["users"] = list(names)
     record["blocks"] = BLOCKS
     record["horizon_steps"] = programme.steps
+    record["scenario"] = describe_instance(
+        scenario,
+        limits,
+        programme,
+        announced_block=announced_block,
+        outlet_headroom=outlet_headroom,
+        demand_scale=demand_scale,
+    )
 
     # A variant that stopped on a limit is not done: it has no answer, so a
     # later run with a longer budget or a different solver has to try again.
@@ -694,6 +817,56 @@ def parse(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--cutoff", type=float, default=CUTOFF_RAD_PER_S)
     parser.add_argument("--overshoot", type=float, default=OVERSHOOT)
     parser.add_argument(
+        "--gate-head", type=float, default=GATE_HEAD_M, metavar="M",
+        help=(
+            "head drop the check-gate limits are read at (default: the "
+            "frozen 0.10 m). The source publishes the gates' rated "
+            "discharges but not the head they are rated at, so this is an "
+            "assumption and the value used is recorded with the results"
+        ),
+    )
+    parser.add_argument(
+        "--outlet-headroom", type=float, default=OUTLET_HEADROOM, metavar="KAPPA",
+        help=(
+            "how much faster than nominal a user's own outlet can draw "
+            "(default: the frozen 1.5). C4 without it is no constraint at "
+            "all: a user could take a week's water in one block"
+        ),
+    )
+    parser.add_argument(
+        "--band", type=float, default=BAND_TOLERANCE_M, metavar="M",
+        help=(
+            "width C9' reconciles the volume account and the level account "
+            "to (default: the measured 0.15 m). Not a tuning knob - "
+            "scripts/check_storage_band.py measures it - but the "
+            "sensitivity runs need it movable"
+        ),
+    )
+    parser.add_argument(
+        "--announce", type=int, default=ANNOUNCE_BLOCKS, metavar="J",
+        help=(
+            "the block the shortage is announced in, which has to be "
+            "before the block the restriction takes effect in (default: 1 "
+            "against a lead of 2). A scenario that announces at the lead "
+            "is refused rather than solved"
+        ),
+    )
+    parser.add_argument(
+        "--cap-scale", type=float, default=1.0, metavar="S",
+        help=(
+            "multiply every reach's conveyance and gate travel rate by S. "
+            "For the runs that ask what binds when the canal rather than "
+            "the source is the tight thing"
+        ),
+    )
+    parser.add_argument(
+        "--demand-scale", type=float, default=1.0, metavar="S",
+        help=(
+            "multiply every user's ordered volume by S, leaving the source "
+            "where it is. The companion to --cap-scale from the other side"
+        ),
+    )
+    parser.add_argument(
         "--time-limit", type=float, default=None, metavar="SECONDS",
         help=(
             "stop the free-gate bound's solver after this many seconds per "
@@ -752,6 +925,16 @@ def main(argv: list[str] | None = None) -> int:
         "" if args.bound_tolerance is None else "",  # bound settings are M1-only
         f"cut-off {args.cutoff} rad/s" if args.cutoff != CUTOFF_RAD_PER_S else "",
         f"overshoot {args.overshoot}" if args.overshoot != OVERSHOOT else "",
+        f"gate head {args.gate_head} m" if args.gate_head != GATE_HEAD_M else "",
+        (
+            f"outlet headroom {args.outlet_headroom}"
+            if args.outlet_headroom != OUTLET_HEADROOM
+            else ""
+        ),
+        f"storage band {args.band} m" if args.band != BAND_TOLERANCE_M else "",
+        f"announcement at block {args.announce}" if args.announce != ANNOUNCE_BLOCKS else "",
+        f"conveyance x{args.cap_scale}" if args.cap_scale != 1.0 else "",
+        f"demand x{args.demand_scale}" if args.demand_scale != 1.0 else "",
     ]
     changed = [item for item in changed if item]
     if changed:
@@ -768,8 +951,32 @@ def main(argv: list[str] | None = None) -> int:
         flush=True,
     )
     clock = time.perf_counter()
+    for name, value in (
+        ("--gate-head", args.gate_head),
+        ("--outlet-headroom", args.outlet_headroom),
+        ("--band", args.band),
+        ("--cap-scale", args.cap_scale),
+        ("--demand-scale", args.demand_scale),
+    ):
+        if value <= 0.0:
+            print(f"{name} must be positive", file=sys.stderr)
+            return 2
+    if not 0 <= args.announce < LEAD_BLOCKS:
+        print(
+            f"--announce must lie between 0 and {LEAD_BLOCKS - 1}: an "
+            f"announcement in the block the restriction takes effect in "
+            f"leaves the users no notice at all",
+            file=sys.stderr,
+        )
+        return 2
+
     network, plant, mapping = build(args.filter_order, args.cutoff, args.margin)
-    limits = make_limits(network)
+    limits = make_limits(
+        network,
+        gate_head_m=args.gate_head,
+        cap_scale=args.cap_scale,
+        band_tolerance_m=args.band,
+    )
     print(
         f"  {network.size} reaches, {mapping.steps} steps, "
         f"{BLOCKS} blocks, {time.perf_counter() - clock:.1f}s",
@@ -827,6 +1034,9 @@ def main(argv: list[str] | None = None) -> int:
             args.overshoot,
             bound_method=args.bound_method,
             settle_margin=args.margin or SETTLE_MARGIN_STEPS,
+            announced_block=args.announce,
+            outlet_headroom=args.outlet_headroom,
+            demand_scale=args.demand_scale,
             bound_options=bound_options,
             bound_level_only=args.bound_level_only,
         )
@@ -834,6 +1044,13 @@ def main(argv: list[str] | None = None) -> int:
         record["filter_order"] = args.filter_order
         record["cutoff_rad_per_s"] = args.cutoff
         record["overshoot"] = args.overshoot
+        record["gate_head_m"] = args.gate_head
+        record["outlet_headroom"] = args.outlet_headroom
+        record["band_tolerance_m"] = args.band
+        record["announce_block"] = args.announce
+        record["cap_scale"] = args.cap_scale
+        record["demand_scale"] = args.demand_scale
+        record["frozen_settings"] = scenario_settings()
         record["bound_method"] = args.bound_method or LP_METHOD
         record["bound_time_limit_s"] = args.time_limit
         record["bound_tolerance"] = args.bound_tolerance

@@ -83,13 +83,16 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import dataclass, field
 
 import numpy as np
 from scipy import sparse
-from scipy.optimize import linprog
 
-from faircanal.config import LP_METHOD, LP_OPTIONS
+from faircanal.config import (
+    CONVEYANCE_EFFICIENCY,
+    solver_settings,
+)
 from faircanal.leximin import LeximinResult, run_linprog
 from faircanal.programme import Programme
 
@@ -106,6 +109,26 @@ __all__ = [
 ]
 
 #: Families whose rows may be relaxed, and the unit each one's slack is in.
+#:
+#: Every row of the programme is here except the cap on the fraction,
+#: which is not a limit on the canal at all: relaxing it would not fill an
+#: order, it would only let over-delivery be counted as if it had.
+#:
+#: The nine divide into two kinds, and the report says which is which.
+#: Seven of them - C2, C3, C5, C6, C7, C8, C9 - answer "what would the
+#: canal have to give", and their slacks are metres and cubic metres a
+#: canal could be built to. The other two answer a different question.
+#: C5' says by how much the controller would have to be driven outside
+#: the range its pool models were identified over, and C9' by how much
+#: the volume account and the level account would have to be allowed to
+#: disagree. Neither is something anybody can construct; both are
+#: statements about the model rather than about the water.
+#:
+#: Leaving those two out was tried first and was worse. A programme whose
+#: only obstacle is the identified range then reports that no relaxation
+#: of the canal's limits produces a schedule, which is true and useless:
+#: the reader is told the canal cannot do it when what stands in the way
+#: is the model's own validity.
 RELAXABLE = {
     "C2 delivered flow non-negative": "m^3/s",
     "C3 volume budget": "m^3",
@@ -113,6 +136,9 @@ RELAXABLE = {
     "C6 gate travel rate": "m^3/s per step",
     "C7 level inside its band": "m",
     "C8 source availability": "m^3/s",
+    "C5' command inside the linear model's range": "m^3/s",
+    "C9 pool storage between empty and full": "m^3",
+    "C9' storage agrees with the level": "m^3",
 }
 
 
@@ -204,9 +230,19 @@ class Certificate:
                     f"{self.relaxation.units[name]}"
                     for name in self.relaxation.binding_families
                 )
-                lines.append(
-                    f"A schedule would exist if these gave together: {given}."
-                )
+                if given:
+                    lines.append(
+                        f"A schedule would exist if these gave together: {given}."
+                    )
+                else:
+                    # Every slack came back at zero, so the rows as written
+                    # already admit a schedule and the caller asked the
+                    # wrong question. Saying "these gave together: ." was
+                    # worse than useless: an empty list read as an answer.
+                    lines.append(
+                        "No row had to give at all: a schedule exists under "
+                        "these limits as they stand."
+                    )
             else:
                 lines.append(
                     "No relaxation of the canal's own limits produces a schedule; "
@@ -268,6 +304,9 @@ def families(programme: Programme) -> tuple[Family, ...]:
             scenario.limits.capacity_m3_s, scenario.limits.nominal_m3_s
         )
     )
+    area = np.array(programme.response.storage_area)
+    depth = np.array([reach.pool.canal_depth_m for reach in scenario.network.reaches])
+    target = np.array([reach.pool.target_level_m for reach in scenario.network.reaches])
     scales = {
         "C2 delivered flow non-negative": scenario.nominal_draw_m3_s,
         "C3 volume budget": scenario.aggregate_demand_m3,
@@ -275,6 +314,13 @@ def families(programme: Programme) -> tuple[Family, ...]:
         "C6 gate travel rate": min(scenario.limits.travel_rate_m3_s),
         "C7 level inside its band": band,
         "C8 source availability": scenario.nominal_draw_m3_s,
+        "C5' command inside the linear model's range": headroom,
+        "C9 pool storage between empty and full": float(
+            (area * (depth - target)).min()
+        ),
+        "C9' storage agrees with the level": float(
+            (area * scenario.limits.band_tolerance_m).min()
+        ),
     }
     out, cursor = [], 0
     for name, count in programme.row_counts.items():
@@ -398,11 +444,15 @@ def elastic_relaxation(
         ),
     )
 
-    solution = linprog(
-        cost, A_ub=a_ub, b_ub=b_ub, bounds=bounds, method=LP_METHOD,
-        options=dict(LP_OPTIONS),
-    )
-    if not solution.success:
+    # Through run_linprog like every other programme in this package, and
+    # not through linprog directly. The difference is not style: a solver
+    # that stopped without deciding used to be written down here as
+    # "no relaxation of the canal's own limits produces a schedule", which
+    # is a statement about the canal made from a statement about the
+    # solver. A verdict that does not exist is raised, not reported.
+    try:
+        solution = _solve(cost, a_ub, b_ub, bounds, "the elastic relaxation")
+    except CertificateError:
         return Relaxation(
             feasible=False,
             slacks={group.name: float("inf") for group in groups},
@@ -422,8 +472,64 @@ def elastic_relaxation(
     )
 
 
+#: Significant digits every number in the digest payload is rounded to
+#: before hashing. See :func:`_canonical`.
+DIGEST_DIGITS = 10
+
+
+def _canonical(value):
+    """The digest payload with every number rounded to a declared precision.
+
+    A digest is supposed to answer one question: were these two runs the
+    same problem under the same settings? Several of the numbers in the
+    payload are not declared but computed - a reach's conveyance comes out
+    of a Manning solve, a pool's backwater area out of the identified
+    model - and two machines with different BLAS builds can produce those
+    to the last bit differently while agreeing on every digit anyone
+    reports. Hashed raw, the two runs then get different digests, and the
+    digest stops meaning "a different problem" and starts meaning "a
+    different machine", which is not a question anybody asked it.
+
+    Rounding to :data:`DIGEST_DIGITS` significant digits fixes that, and
+    the cost has to be stated rather than hidden: a change in how a
+    coefficient is derived that moves it by less than one part in
+    :math:`10^{10}` will no longer show up in the digest. Nothing in this
+    study derives a coefficient to that precision - the conveyances are
+    reported to four decimals and the solver's own feasibility tolerance
+    is :math:`10^{-9}` - so what is given up is noise, and what is bought
+    is a digest that two machines can compare.
+    """
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            return repr(value)
+        if value == 0.0:
+            return 0.0
+        exponent = math.floor(math.log10(abs(value)))
+        return round(value, DIGEST_DIGITS - 1 - exponent)
+    if isinstance(value, dict):
+        return {key: _canonical(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_canonical(item) for item in value]
+    return value
+
+
 def _digest(programme: Programme) -> str:
     """A hash of everything the answer depends on."""
+    text = json.dumps(
+        _canonical(digest_payload(programme)), sort_keys=True, separators=(",", ":")
+    )
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def digest_payload(programme: Programme) -> dict:
+    """What the digest is taken over, as a dictionary.
+
+    Separated from the hashing so that a mismatch between two machines
+    can be located block by block rather than guessed at;
+    ``scripts/check_digest.py`` does exactly that.
+    """
     scenario = programme.scenario
     payload = {
         "scenario": scenario.name,
@@ -444,10 +550,27 @@ def _digest(programme: Programme) -> str:
         "nominal_m3_s": list(scenario.limits.nominal_m3_s),
         "level_band_m": [list(band) for band in scenario.limits.level_band_m],
         "travel_rate_m3_s": list(scenario.limits.travel_rate_m3_s),
+        # What the answer depends on, not what happens to be nearby. The
+        # first version of this block read the filter's order off
+        # ``delivery.shape[1]``, which is the number of order blocks, and
+        # carried neither the cut-off nor the control law nor the solver.
+        # Two runs that differed only in the filter therefore produced the
+        # same digest, and the collision was reported in the article with
+        # the wrong cause attached to it.
         "filter": {
-            "order": programme.response.delivery.shape[1],
+            "order": programme.response.filter_order,
+            "cutoff_rad_per_s": programme.response.filter_cutoff_rad_per_s,
+            "sample_time_s": scenario.dt_s,
             "steps": programme.steps,
         },
+        "control": programme.response.control_signature,
+        "storage": {
+            "area": [float(value) for value in programme.response.storage_area],
+            "transport_lag": list(programme.response.transport_lag),
+            "band_tolerance_m": scenario.limits.band_tolerance_m,
+            "conveyance_efficiency": CONVEYANCE_EFFICIENCY,
+        },
+        "solver": solver_settings(),
         "users": [
             {
                 "name": user.name,
@@ -463,8 +586,7 @@ def _digest(programme: Programme) -> str:
             for user in scenario.users
         ],
     }
-    text = json.dumps(payload, sort_keys=True, separators=(",", ":"))
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+    return payload
 
 
 def certify_no_schedule(programme: Programme) -> Certificate:

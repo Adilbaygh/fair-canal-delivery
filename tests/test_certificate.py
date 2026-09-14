@@ -10,6 +10,9 @@ impossibility about a situation that is merely expensive.
 
 from __future__ import annotations
 
+import hashlib
+import json
+from copy import deepcopy
 from dataclasses import replace
 from functools import lru_cache
 
@@ -20,7 +23,10 @@ from faircanal.benchmarks import haughton_filter
 from faircanal.certificate import (
     RELAXABLE,
     CertificateError,
+    _canonical,
+    _digest,
     certify,
+    digest_payload,
     elastic_relaxation,
     families,
     structural_ceilings,
@@ -142,7 +148,10 @@ def test_the_ceiling_separates_being_outvoted_from_being_impossible():
     assert mild.impossible_users == ()
     assert "reachable on its own" in mild.report()
 
-    deep = certificate(0.5)
+    # Fifty-five per cent, not fifty: with the gate limit and the storage
+    # state in the programme this six-block instance runs out of schedules
+    # one step of the scan earlier than it used to.
+    deep = certificate(0.55)
     assert deep.impossible_users, "no user is now structurally short"
     assert "No allocation decision could have filled" in deep.report()
     for name in deep.impossible_users:
@@ -151,7 +160,7 @@ def test_the_ceiling_separates_being_outvoted_from_being_impossible():
 
 def test_the_ceiling_is_the_most_one_user_could_get_alone():
     """Every ceiling is above what that user actually got, and at most one."""
-    programme = model(0.5)
+    programme = model(0.55)
     result = solve_leximin(programme.ratio)
     certified = certify(programme, result)
     ceilings = structural_ceilings(programme)
@@ -171,12 +180,20 @@ def test_one_family_at_a_time_reports_an_impossibility_that_is_not_one():
     """Why the relaxation frees every family at once.
 
     Pinned to one family, the canal cannot be made to fill every order at
-    all - each family alone is infeasible. Freed together they can, and
-    the answer names five of the six. A search that tried them one at a
-    time would have reported that nothing could be done, about a situation
-    that only needed several things to give a little each.
+    all - every one of the nine alone is infeasible. Freed together they
+    can, and the answer names three of them. A search that tried them one
+    at a time would have reported that nothing could be done, about a
+    situation that only needed several things to give a little each.
+
+    The scenario is the one the adequacy audit found the mistake in,
+    re-tuned for the programme as it now stands: the conveyance squeezed
+    to a tenth and the demand raised by fifteen per cent. The audit's own
+    numbers - a fiftieth and thirty per cent - are past the point where
+    any relaxation helps, because C1 now caps a user's outlet and no
+    amount of canal fills an order the outlet cannot pass. That refusal is
+    the certificate working, and it is checked below.
     """
-    programme = model(0.9, 0.02, 1.3)
+    programme = model(0.9, 0.1, 1.15)
     joint = elastic_relaxation(programme)
     assert joint.feasible
     assert len(joint.binding_families) >= 3, joint.binding_families
@@ -187,6 +204,26 @@ def test_one_family_at_a_time_reports_an_impossibility_that_is_not_one():
             f"{group.name} alone is now enough, so this test no longer shows "
             f"why the families are freed together"
         )
+
+
+def test_an_order_the_outlet_cannot_pass_is_refused_by_no_amount_of_canal():
+    """C1 is the one limit the canal cannot be relaxed around.
+
+    Every other family is something that could be built bigger. A user's
+    own outlet is not part of the programme's rows at all - it is a bound
+    on the decision - so when the demand exceeds what that outlet can pass
+    inside the window, freeing every row at once still fills nothing. The
+    certificate says so rather than returning a schedule that does not
+    exist.
+    """
+    programme = model(0.9, 0.02, 1.3)
+    joint = elastic_relaxation(programme)
+    assert not joint.feasible
+    for group in families(programme):
+        assert not elastic_relaxation(programme, allowed={group.name}).feasible
+    # And a schedule does exist here - it simply cannot fill every order,
+    # which is the distinction the two relaxations are there to keep.
+    assert elastic_relaxation(programme, fulfil=False).feasible
 
 
 def test_the_joint_relaxation_is_never_worse_than_a_single_family():
@@ -304,7 +341,7 @@ def test_the_families_cover_every_row_except_the_cap():
 
 
 def test_the_binding_families_are_reported_with_their_prices():
-    certified = certificate(0.5)
+    certified = certificate(0.55)
     assert certified.binding
     names = {entry.family for entry in certified.binding}
     assert "C8 source availability" in names
@@ -320,6 +357,69 @@ def test_the_digest_follows_the_inputs():
     assert certificate(0.7).digest == first
     assert certificate(0.5).digest != first
     assert len(first) == 64
+
+
+def test_the_digest_survives_a_different_machine_and_not_a_different_problem():
+    """Rounded, and rounded on purpose.
+
+    Two machines with different BLAS builds compute a reach's conveyance
+    - a Manning solve - and a pool's backwater area to the last bit
+    differently while agreeing on every digit anybody reports. Hashed
+    raw, the same instance then gets two digests, and the digest answers
+    "a different machine" instead of "a different problem".
+
+    So the payload is rounded to ``DIGEST_DIGITS`` significant figures
+    first. What that costs is checked here as well as what it buys: a
+    change of one part in a million still changes the digest, which is
+    far finer than anything this study derives or reports.
+    """
+    programme = model(0.7)
+    payload = digest_payload(programme)
+    before = _digest(programme)
+
+    def hashed(block):
+        text = json.dumps(_canonical(block), sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+    baseline = hashed(payload)
+    assert len(baseline) == 64
+
+    # Last-bit noise: invisible, which is the point.
+    nudged = deepcopy(payload)
+    nudged["capacity_m3_s"][0] *= 1.0 + 1.0e-14
+    nudged["storage"]["area"][0] *= 1.0 - 1.0e-14
+    assert hashed(nudged) == baseline
+
+    # A real change: visible, which is also the point.
+    changed = deepcopy(payload)
+    changed["capacity_m3_s"][0] *= 1.0 + 1.0e-6
+    assert hashed(changed) != baseline
+
+    # And the rounding did not quietly turn every digest into the same one.
+    assert _digest(programme) == before
+    assert _digest(model(0.5)) != before
+
+
+def test_the_digest_separates_two_filters_that_differ():
+    """The collision this digest was fixed to stop.
+
+    The payload used to name the scenario and not the loop, so a run with
+    a different filter produced the same digest as the main scan - and
+    the article reported that collision with the wrong cause attached to
+    it. Rounding must not bring it back: two filters are two problems,
+    and the scenario alone cannot tell them apart.
+    """
+    fourth_order = build_plant(corning_cascade(), haughton_filter(4))
+    steps = horizon_for(BLOCKS)
+    other = response_map(
+        fourth_order,
+        BLOCKS,
+        law=control_law(
+            list(fourth_order.design_models), fourth_order.weights, horizon=steps
+        ),
+    )
+    scenario = model(0.7).scenario
+    assert _digest(assemble(scenario, other)) != _digest(model(0.7))
 
 
 def test_a_programme_with_nothing_to_relax_is_refused():

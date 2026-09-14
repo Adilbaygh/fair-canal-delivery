@@ -31,7 +31,7 @@ this after any change to the canal, the filter or the frozen constants.
 
 from __future__ import annotations
 
-import csv
+import math
 import sys
 from pathlib import Path
 
@@ -40,28 +40,37 @@ sys.path.insert(0, str(ROOT / "src"))
 
 from faircanal.benchmarks import haughton_filter  # noqa: E402
 from faircanal.config import (  # noqa: E402
+    ANNOUNCE_BLOCKS,
+    BAND_TOLERANCE_M,
+    BLOCKS,
+    CONVEYANCE_EFFICIENCY,
     D_MIN_M3,
     DT_BLOCK_S,
     DT_PLANT_S,
     EPS_SAT,
+    GATE_HEAD_M,
+    LEAD_BLOCKS,
     LP_METHOD,
     LP_OPTIONS,
+    OUTLET_HEADROOM,
     R_CAP,
     SETTLE_MARGIN_STEPS,
     STEPS_PER_BLOCK,
+    TRAVEL_FRACTION,
+    WARM_UP_STEPS,
 )
 from faircanal.delivery import memory_steps  # noqa: E402
-from faircanal.geometry import uniform_discharge  # noqa: E402
+from faircanal.geometry import corning_gate_limits, uniform_discharge  # noqa: E402
 from faircanal.network import corning_cascade  # noqa: E402
 from faircanal.provenance import repo_root, write_json, write_text  # noqa: E402
 
-# The pre-registration's own constants, named here exactly as the scan
-# names them. If these two lists ever disagree the export is lying, which
-# is what the test is for.
-BLOCKS = 8
-LEAD_BLOCKS = 2
-WARM_UP_STEPS = 15
-TRAVEL_FRACTION = 0.25
+# The pre-registration's own constants, imported from the one module that
+# holds them rather than copied out here. They used to be copied out here,
+# with a comment promising that a test would catch the two lists drifting
+# apart; the test compared this file's copy against the export this file
+# had just written from its own copy, so the only drift it could ever have
+# caught was between a number and itself. What the study is actually run
+# with is what ``faircanal.config`` says, so that is what is exported.
 FILTER_ORDER = 3
 CUTOFF_RAD_PER_S = 3.0e-3
 OVERSHOOT = 0.0
@@ -70,16 +79,25 @@ SCAN = tuple(round(1.00 - 0.05 * step, 2) for step in range(15))
 CSV_HEADER = [
     "node", "label", "length_m", "bed_width_m", "side_slope", "canal_depth_m",
     "manning_n", "bed_slope", "target_level_m", "offtake_m3_s", "tail_m3_s",
-    "capacity_m3_s", "level_band_low_m", "level_band_high_m",
-    "travel_rate_m3_s",
+    "capacity_m3_s", "gate_capacity_m3_s", "level_band_low_m",
+    "level_band_high_m", "travel_rate_m3_s",
 ]
 
 
 def canal_rows() -> list[dict]:
-    """One row per reach: what is published, and what follows from it."""
+    """One row per reach: what is published, and what follows from it.
+
+    ``gate_capacity_m3_s`` is the check gate's discharge at the assumed
+    head drop, in node order. It is empty for the head of the canal, where
+    what stands is the heading structure and the source publishes no gate
+    for it - empty, and not some large number standing in for infinity,
+    because a reader recomputing from this table has to be able to tell
+    "no limit was published" from "the limit is large".
+    """
     network = corning_cascade()
+    gates = corning_gate_limits(GATE_HEAD_M)
     rows = []
-    for reach in network.reaches:
+    for reach, gate in zip(network.reaches, gates):
         pool = reach.pool
         full = uniform_discharge(pool, pool.canal_depth_m)
         band = pool.canal_depth_m - pool.target_level_m
@@ -96,6 +114,7 @@ def canal_rows() -> list[dict]:
             "offtake_m3_s": reach.offtake_m3_s,
             "tail_m3_s": reach.tail_m3_s,
             "capacity_m3_s": full,
+            "gate_capacity_m3_s": "" if math.isinf(gate) else gate,
             "level_band_low_m": -band,
             "level_band_high_m": band,
             "travel_rate_m3_s": TRAVEL_FRACTION * full,
@@ -124,11 +143,24 @@ def payload() -> dict:
         "limits": {
             "provenance": (
                 "capacity derived from the geometry at full supply level; "
-                "level band derived from canal depth minus target level; "
-                "gate travel rate and warm-up assumed"
+                "gate discharge derived from the published gate table at an "
+                "assumed head drop; level band derived from canal depth minus "
+                "target level; gate travel rate and warm-up assumed"
             ),
             "travel_rate_fraction_of_capacity": TRAVEL_FRACTION,
             "warm_up_steps": WARM_UP_STEPS,
+            "gate_head_m": GATE_HEAD_M,
+            "gate_capacity_m3_s": [
+                None if math.isinf(value) else value
+                for value in corning_gate_limits(GATE_HEAD_M)
+            ],
+            "conveyance_efficiency": CONVEYANCE_EFFICIENCY,
+            "storage_band_m": BAND_TOLERANCE_M,
+            "storage_band_provenance": (
+                "measured - scripts/check_storage_band.py runs the criterion "
+                "and reads the discrepancy between the volume account and the "
+                "level account off the schedule the criterion itself chooses"
+            ),
         },
         "filter": {
             "provenance": "assumed - the wave-damping filter of the source study",
@@ -149,6 +181,8 @@ def payload() -> dict:
             "provenance": "assumed - stated in the pre-registration, section 1.5",
             "blocks": BLOCKS,
             "lead_blocks": LEAD_BLOCKS,
+            "announce_block": ANNOUNCE_BLOCKS,
+            "outlet_headroom": OUTLET_HEADROOM,
             "overshoot": OVERSHOOT,
             "ratio_cap": R_CAP,
             "min_demand_m3": D_MIN_M3,
@@ -195,10 +229,17 @@ interchangeable:
   in the file.
 - **derived** - computed from something observed by a stated formula. The
   conveyance capacity of each reach is the uniform discharge at full
-  supply level; the level band is the canal depth minus the target level.
+  supply level; each check gate's discharge is the published gate table
+  read at an assumed head drop; the level band is the canal depth minus
+  the target level.
 - **assumed** - chosen by this study because no published value was found.
-  The gate travel rate, the warm-up, the delivery window and the filter
-  are assumed, and every result that depends on them says so.
+  The head the gates are rated at, the gate travel rate, the warm-up, the
+  outlet headroom, the delivery window and the filter are assumed, and
+  every result that depends on them says so.
+- **measured** - a number this study obtained by running its own model and
+  reading the answer off it, rather than choosing it. The width the two
+  storage accounts are reconciled to is the only one, and
+  `scripts/check_storage_band.py` is the measurement.
 
 ## These files are exported, not read
 

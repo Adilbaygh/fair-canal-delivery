@@ -431,6 +431,27 @@ CORNING_GATES = tuple(
     )
 )
 
+def corning_gate_limits(head_difference_m: float) -> tuple[float, ...]:
+    """What each node's gate can pass at a given head drop [m^3/s].
+
+    Returned in **node order**, which is the order every scenario and
+    programme uses: node 1 is the most downstream reach and node 8 the
+    head. The source numbers its pools the other way, from the head down,
+    so its check gate 1 - the one carrying 12.0 m^3/s out of reach 1 - is
+    the gate of node 7, and the published list has to be reversed before
+    it can be read alongside anything else here. Getting that backwards
+    puts the narrowest gate on the widest reach and the programme refuses
+    the scenario, which is the failure this function exists to prevent.
+
+    The head of the canal has no check gate: what stands there is the
+    heading structure, whose geometry the source does not publish. Its
+    entry is infinite, so the reach's own conveyance is the only limit on
+    it and nothing is invented to fill the gap.
+    """
+    limits = [gate_capacity(gate, head_difference_m) for gate in reversed(CORNING_GATES)]
+    return tuple(limits) + (math.inf,)
+
+
 #: Initial offtake discharges, Table 6 [m^3/s].
 CORNING_OFFTAKES = (1.7, 1.8, 2.7, 0.3, 0.2, 0.8, 1.2, 2.3)
 

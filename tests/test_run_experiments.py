@@ -97,6 +97,10 @@ def scan(monkeypatch):
             "detail": {},
         },
     )
+    # The instance description is data about the canal, and this file has
+    # no canal. It is checked on its own below, where the stub can be as
+    # small as the thing under test.
+    monkeypatch.setattr(module, "describe_instance", lambda *a, **k: {"stub": True})
     monkeypatch.setattr(module, "report", lambda *a, **k: None)
     monkeypatch.setattr(
         module,
@@ -429,3 +433,63 @@ def test_a_margin_that_covers_the_filter_is_accepted():
     # which is why that sensitivity run needs no flag and the other does.
     fourth = FilterSpec(order=4, cutoff_rad_per_s=3.0e-3, sample_time_s=DT_PLANT_S)
     assert memory_steps(frozen) < memory_steps(fourth) <= SETTLE_MARGIN_STEPS
+
+
+# ---------------------------------------------------------------------------
+# What the record says the point was solved on
+# ---------------------------------------------------------------------------
+
+
+def test_the_instance_block_says_what_the_point_was_solved_on():
+    """The flags are in the record, not only in the shell history.
+
+    Every quantity the rework made movable - the outlet's own rate, the
+    head the gates are read at, the width the two storage accounts are
+    reconciled to, when the shortage is announced, and the two scaling
+    factors - changes the answer, so a record that omitted them would
+    describe an answer nobody could reproduce.
+
+    The gate of the head structure is the one to watch: the source
+    publishes no gate for it, and "none published" must not be written
+    down as a number. Infinity is not JSON, and a large stand-in would be
+    a different claim from an absent one.
+    """
+    module = load()
+    limits = SimpleNamespace(
+        band_tolerance_m=0.15,
+        capacity_m3_s=(8.69, 18.98),
+        gate_capacity_m3_s=(7.69, float("inf")),
+    )
+    scenario = SimpleNamespace(
+        aggregate_demand_m3=138600.0,
+        users=(
+            SimpleNamespace(max_order_m3_s=3.45),
+            SimpleNamespace(max_order_m3_s=None),
+        ),
+    )
+    programme = SimpleNamespace(
+        row_counts={"C9 pool storage between empty and full": 144},
+        ratio=SimpleNamespace(a_ub=SimpleNamespace(shape=(17584, 64)), n_vars=64),
+    )
+
+    block = module.describe_instance(
+        scenario,
+        limits,
+        programme,
+        announced_block=1,
+        outlet_headroom=1.5,
+        demand_scale=1.0,
+    )
+
+    assert block["gate_capacity_m3_s"] == [7.69, None]
+    assert block["max_order_m3_s"] == [3.45, None]
+    assert block["band_tolerance_m"] == 0.15
+    assert block["announced_block"] == 1
+    assert block["outlet_headroom"] == 1.5
+    assert block["rows"] == 17584 and block["variables"] == 64
+    assert block["row_counts"]["C9 pool storage between empty and full"] == 144
+
+    # And it survives the round trip the scan actually performs.
+    import json
+
+    assert json.loads(json.dumps(block, allow_nan=False)) == block

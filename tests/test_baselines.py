@@ -150,7 +150,7 @@ def test_the_lexicographic_answer_cannot_be_beaten_on_the_worst_off():
     set. If this ever fails, the staged procedure is broken, not the
     canal.
     """
-    programme = model(0.5)
+    programme = model(0.55)
     best = leximin(programme)
     assert best.detail["stage_levels"][0] == pytest.approx(
         min(best.weighted), abs=best.detail["accuracy_bound"]
@@ -258,15 +258,22 @@ def test_the_bound_brackets_the_answer_from_both_sides():
     of the reported interval, and the schedule actually returned sits at
     the upper end. Both halves are checked against the other baselines,
     which are feasible schedules and therefore cannot break the bound.
+
+    The bound and the schedules it is compared against have to come off
+    the *same* instance, or the test proves nothing about either: a
+    number certified on one polytope says nothing about a point in a
+    different one. Hence the single scarcity level below, which is the
+    tightest this six-block fixture still admits once the gate limit and
+    the storage state are in the programme.
     """
-    programme = model(0.5)
+    programme = model(0.55)
     answer = min_spread(programme)
     low, high = answer.detail["sigma_bounds"]
     assert low <= high
-    for code, other in answers(0.5).items():
+    for code, other in answers(0.55).items():
         assert other.spread >= low - TOL, f"{code} beats a bound it cannot beat"
     assert answer.spread <= min(
-        other.spread for other in answers(0.5).values()
+        other.spread for other in answers(0.55).values()
     ) + answer.detail["sigma_tol"]
 
 
@@ -291,7 +298,7 @@ def test_re_mixing_buys_speed_and_not_a_different_answer():
     letting the plain method run to its own tolerance takes minutes and
     proves nothing this does not.
     """
-    programme = model(0.5)
+    programme = model(0.55)
     quick = min_spread(programme)
     plain = min_spread(programme, corrective=False, max_iterations=40)
 

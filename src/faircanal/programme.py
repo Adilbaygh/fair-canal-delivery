@@ -17,16 +17,38 @@ delivered volume, the ratio - and the nominal enters those as a constant.
 The closed loop is substituted, not relaxed
 -------------------------------------------
 The model document writes C10 as an equality constraint. Substituting the
-response map instead - so that the levels and the commands are affine
-functions of ``z`` and never appear as variables - is the same feasible
-set with far fewer variables, and it has one consequence worth stating:
-because the pool models integrate their net flow at exactly the rate their
-backwater area says, the level bound C7 already bounds the stored volume.
-So the slow-layer storage state C9 and its reconciliation band C9' are
-implied by C7 rather than added, as long as the conveyance loss is one.
-``test_the_storage_state_is_implied_by_the_level_band`` checks that
-implication rather than assuming it, and the loss stays open until its
-formula can be read from its source.
+response map instead - so that the levels, the commands and the applied
+flows are affine functions of ``z`` and never appear as variables - is the
+*same feasible set* with far fewer variables.
+
+That is a claim, not a convenience, so it is checked rather than asserted:
+``test_c10_substitution_equals_equality_rows`` builds the equality form on
+a small instance and requires the two polytopes to accept and refuse the
+same points.
+
+The storage state is carried, not assumed away
+----------------------------------------------
+An earlier version left C9 and C9' out on the argument that the level
+bound C7 already bounds the stored volume. It does not, and the argument
+had a second flaw: the test it cited had never been written. Two accounts
+of the same water exist here - a slow one in volume and a fast one in
+level - and they are not the same account. An IDZ pool is not a level
+pool: its storage is not the downstream level times an area, because the
+surface tilts when the flow changes and the wedge that tilting holds is
+exactly what the model's delay and its zero represent.
+
+So both are written down, and C9' ties them together with a band whose
+width was measured rather than chosen - see ``Limits.band_tolerance_m``,
+whose default is the measured ``BAND_TOLERANCE_M``, and the measurement
+itself in ``scripts/check_storage_band.py``. The area is the backwater area the
+pool actually integrates at, not the water surface; on this canal the two
+differ by up to three quarters.
+
+Because every block volume is itself affine in ``z``, the running storage
+total is affine too, so C9 and C9' cost rows and no new variables. The
+state stays a state: the row for block ``j`` carries every block before
+it, so a slack of storage cannot reappear afresh each block and make water
+out of nothing.
 
 What each constraint is doing
 -----------------------------
@@ -39,16 +61,31 @@ C2        the delivered flow itself cannot go negative - the
 C3        the volume budget, with a declared delivery
           allowance
 C4        nothing is reshaped before it is announced: the
-          deviation is pinned at zero in earlier blocks
-C5        every gate stays between shut and the reach's
-          conveyance
-C6        no gate moves faster than it can
-C7        every level stays inside its band
+          deviation is pinned at zero in earlier blocks, so
+          the announced nominal order stands
+C5        every gate passes between nothing and the smaller
+          of what the reach conveys and what the gate itself
+          lets through - written on the **applied** flow,
+          which is the water, not on the command
+C5'       and the command stays inside the range the pool
+          models were identified over, which is a different
+          constraint on a different signal: the command
+          swings several times harder than the flow
+C6        no gate moves faster than it can, again on the
+          applied flow
+C7        every level stays inside its band, at every one of
+          the K+1 samples a run of K steps produces
 C8        the users cannot draw more than the source releases,
           from the step the restriction takes effect
-C11       the first steps may be exempted from C5 to C7, for
-          the transient the controller's feed-forward makes
-          when it learns the whole future at once
+C9        pool storage is a state with a floor and a ceiling,
+          accumulated block by block from the volumes that
+          entered and left
+C9'       and that state agrees with the level account to
+          within a declared, measured band
+C11       the first steps may be exempted from C7 - and from
+          C7 only - for the transient the controller's
+          feed-forward makes when it learns the whole future
+          at once
 ========  ===================================================
 
 and the cap ``r_i <= 1``, which is not decoration: without it, pouring
@@ -63,9 +100,10 @@ from dataclasses import dataclass
 import numpy as np
 from scipy import sparse
 
+from faircanal.config import CONVEYANCE_EFFICIENCY
 from faircanal.leximin import RatioProgramme, TieBreak
 from faircanal.plant import ResponseMap
-from faircanal.scenario import Scenario, ScenarioError
+from faircanal.scenario import Scenario
 
 __all__ = [
     "ProgrammeError",
@@ -94,6 +132,8 @@ class Programme:
     spread: sparse.csr_matrix
     level_rows: np.ndarray
     command_rows: np.ndarray
+    applied_rows: np.ndarray
+    storage_rows: np.ndarray
     row_counts: dict
 
     @property
@@ -140,12 +180,29 @@ class Programme:
         )
 
     def levels_at(self, z: np.ndarray) -> np.ndarray:
+        """Level deviations, ``(steps + 1, size)``."""
         value = self.response.baseline_levels + self.level_rows @ np.asarray(z)
-        return value.reshape(self.steps, self.size)
+        return value.reshape(self.response.level_steps, self.size)
 
     def commands_at(self, z: np.ndarray) -> np.ndarray:
+        """What the controller asks each gate for, ``(steps, size)``."""
         value = self.response.baseline_commands + self.command_rows @ np.asarray(z)
         return value.reshape(self.steps, self.size)
+
+    def applied_at(self, z: np.ndarray) -> np.ndarray:
+        """What each gate actually passes, ``(steps, size)``."""
+        value = self.response.baseline_applied + self.applied_rows @ np.asarray(z)
+        return value.reshape(self.steps, self.size)
+
+    def storage_at(self, z: np.ndarray) -> np.ndarray:
+        """Pool storage relative to its nominal, ``(size, blocks + 1)`` m^3.
+
+        Block ``0`` is the state the run starts from, so it is zero by
+        construction; block ``j`` carries everything that entered and left
+        before it.
+        """
+        value = self.storage_rows @ np.asarray(z)
+        return value.reshape(self.size, self.blocks + 1)
 
     def ratios_at(self, z: np.ndarray) -> np.ndarray:
         return self.ratio.ratios_at(np.asarray(z, dtype=float))
@@ -179,6 +236,94 @@ def _path_loss(scenario: Scenario, node: int) -> float:
     return factor
 
 
+def _block_mean_levels(response: ResponseMap, level_rows: np.ndarray) -> np.ndarray:
+    """Each pool's mean level over each block, as rows in ``z``.
+
+    One row per ``(pool, block)`` in pool-major order, so it lines up with
+    the storage rows C9' compares it against. The block index runs to
+    ``blocks`` inclusive because the storage state does too: block zero is
+    where the run starts.
+    """
+    size, blocks = response.size, response.blocks
+    per_block, level_steps = response.steps_per_block, response.level_steps
+    out = np.zeros((size * (blocks + 1), level_rows.shape[1]))
+    index = np.arange(level_steps) * size
+    for pool in range(size):
+        rows = level_rows[index + pool]
+        for block in range(blocks + 1):
+            first = min(block * per_block, level_steps - per_block)
+            out[pool * (blocks + 1) + block] = rows[first : first + per_block].mean(
+                axis=0
+            )
+    return out
+
+
+def _storage_rows(
+    scenario: Scenario,
+    response: ResponseMap,
+    applied_rows: np.ndarray,
+    gamma: np.ndarray,
+    dt: float,
+) -> np.ndarray:
+    """Pool storage, relative to its nominal, as rows in ``z``.
+
+    The recursion of C9 written out. Every block volume is affine in the
+    decision, so the running total is affine too and the state needs rows
+    rather than variables:
+
+        S_p[j] - S_p[0] = sum over the blocks before j of
+            eta_p V^{e,tau}_p - sum over children V^e - sum over users V^d
+
+    ``V^e_n`` is the volume that passed gate ``n`` in a block, taken from
+    the **applied** flow because that is the water; ``V^{e,tau}`` is the
+    same shifted by the reach's transport lag, so water is credited to the
+    pool when it arrives and not when it set off. A pool's outflow is the
+    flow through the gate below it, and the most downstream pool has none:
+    everything that reaches it leaves through its own offtake.
+
+    The result is zero at block zero and at ``z = 0``, because the canal
+    starts in the identified steady state where every deviation is zero.
+    """
+    size, blocks = response.size, response.blocks
+    steps, per_block = response.steps, response.steps_per_block
+    lags = response.transport_lag
+    n_vars = applied_rows.shape[1]
+    index = np.arange(steps) * size
+
+    inflow = np.zeros((size, blocks, n_vars))
+    delayed = np.zeros((size, blocks, n_vars))
+    for pool in range(size):
+        rows = applied_rows[index + pool]
+        lag = lags[pool]
+        for block in range(blocks):
+            window = np.arange(block * per_block, (block + 1) * per_block)
+            inflow[pool, block] = dt * rows[window].sum(axis=0)
+            shifted = window - lag
+            arrived = shifted[shifted >= 0]
+            if arrived.size:
+                delayed[pool, block] = dt * rows[arrived].sum(axis=0)
+
+    drawn = np.zeros((size, blocks, n_vars))
+    block_volume = np.array(
+        [
+            dt * gamma[block * per_block : (block + 1) * per_block].sum(axis=0)
+            for block in range(blocks)
+        ]
+    )
+    for order, user in enumerate(scenario.users):
+        columns = slice(order * blocks, (order + 1) * blocks)
+        for block in range(blocks):
+            drawn[user.node - 1, block, columns] += block_volume[block]
+
+    net = CONVEYANCE_EFFICIENCY * delayed - drawn
+    net[1:] -= inflow[:-1]
+
+    storage = np.zeros((size, blocks + 1, n_vars))
+    for block in range(blocks):
+        storage[:, block + 1] = storage[:, block] + net[:, block]
+    return storage.reshape(size * (blocks + 1), n_vars)
+
+
 def assemble(scenario: Scenario, response: ResponseMap) -> Programme:
     """Write the whole model down as a :class:`RatioProgramme`."""
     if response.size != scenario.network.size:
@@ -206,9 +351,8 @@ def assemble(scenario: Scenario, response: ResponseMap) -> Programme:
     spread = _spread_matrix(scenario, size, blocks)
     level_rows = response.levels @ spread
     command_rows = response.commands @ spread
+    applied_rows = response.applied @ spread
     gamma = response.delivery
-
-    nominal = np.array([user.nominal_m3_s for user in users])
 
     # --- the fractions -----------------------------------------------------
     ratio_rows = np.zeros((n_users, n_vars))
@@ -264,48 +408,57 @@ def assemble(scenario: Scenario, response: ResponseMap) -> Programme:
         )
     add(c3, c3_b, "C3 volume budget")
 
-    # --- C5, C6, C7: what the canal may do --------------------------------
+    # --- C5, C5', C6: what the canal may do -------------------------------
+    #
+    # The warm-up does not reach any of these. It exempts C7 and nothing
+    # else: the level band is what an order-induced transient can
+    # legitimately break while the feed-forward settles, and a gate that
+    # cannot pass the water cannot pass it in the first fifteen minutes
+    # either.
     warm = scenario.limits.warm_up_steps
     if warm >= steps:
         raise ProgrammeError(
             f"a warm-up of {warm} steps leaves nothing of a {steps}-step run"
         )
-    active = np.arange(warm, steps)
-    keep = (active[:, None] * size + np.arange(size)[None, :]).reshape(-1)
 
-    command_bounds = scenario.limits.command_bounds
-    low = np.array([bound[0] for bound in command_bounds])
-    high = np.array([bound[1] for bound in command_bounds])
-    base_u = response.baseline_commands
-    a_u = command_rows[keep]
-    b_u = base_u[keep]
-    tiled_low = np.tile(low, active.size)
-    tiled_high = np.tile(high, active.size)
-    add(
-        np.vstack([a_u, -a_u]),
-        np.concatenate([tiled_high - b_u, b_u - tiled_low]),
+    def two_sided(rows, base, low, high, label, span):
+        """Add ``low <= base + rows z <= high`` as two blocks of rows."""
+        add(
+            np.vstack([rows, -rows]),
+            np.concatenate([np.tile(high, span) - base, base - np.tile(low, span)]),
+            label,
+        )
+
+    flow_low = np.array([bound[0] for bound in scenario.limits.flow_bounds])
+    flow_high = np.array([bound[1] for bound in scenario.limits.flow_bounds])
+    two_sided(
+        applied_rows,
+        response.baseline_applied,
+        flow_low,
+        flow_high,
         "C5 gate flow inside the reach's conveyance",
+        steps,
     )
 
-    band_low = np.array([band[0] for band in scenario.limits.level_band_m])
-    band_high = np.array([band[1] for band in scenario.limits.level_band_m])
-    base_y = response.baseline_levels
-    a_y = level_rows[keep]
-    b_y = base_y[keep]
-    add(
-        np.vstack([a_y, -a_y]),
-        np.concatenate(
-            [np.tile(band_high, active.size) - b_y, b_y - np.tile(band_low, active.size)]
-        ),
-        "C7 level inside its band",
+    command_low = np.array([bound[0] for bound in scenario.limits.command_bounds])
+    command_high = np.array([bound[1] for bound in scenario.limits.command_bounds])
+    two_sided(
+        command_rows,
+        response.baseline_commands,
+        command_low,
+        command_high,
+        "C5' command inside the linear model's range",
+        steps,
     )
 
-    if active.size > 1:
-        later = keep[size:]
-        earlier = keep[:-size]
-        step_rows = command_rows[later] - command_rows[earlier]
-        step_base = base_u[later] - base_u[earlier]
-        travel = np.tile(np.array(scenario.limits.travel_rate_m3_s), active.size - 1)
+    if steps > 1:
+        later = np.arange(size, steps * size)
+        earlier = np.arange(0, (steps - 1) * size)
+        step_rows = applied_rows[later] - applied_rows[earlier]
+        step_base = (
+            response.baseline_applied[later] - response.baseline_applied[earlier]
+        )
+        travel = np.tile(np.array(scenario.limits.travel_rate_m3_s), steps - 1)
         add(
             np.vstack([step_rows, -step_rows]),
             np.concatenate([travel - step_base, travel + step_base]),
@@ -313,6 +466,25 @@ def assemble(scenario: Scenario, response: ResponseMap) -> Programme:
         )
     else:
         counts["C6 gate travel rate"] = 0
+
+    # --- C7: the level band, and the one thing the warm-up frees ----------
+    #
+    # A run of K steps produces K+1 levels and all of them are bounded; the
+    # last used to fall off the end, which left the level at the horizon
+    # free for no reason anybody had written down.
+    level_steps = response.level_steps
+    active = np.arange(warm, level_steps)
+    keep = (active[:, None] * size + np.arange(size)[None, :]).reshape(-1)
+    band_low = np.array([band[0] for band in scenario.limits.level_band_m])
+    band_high = np.array([band[1] for band in scenario.limits.level_band_m])
+    two_sided(
+        level_rows[keep],
+        response.baseline_levels[keep],
+        band_low,
+        band_high,
+        "C7 level inside its band",
+        active.size,
+    )
 
     # --- C8: the source ----------------------------------------------------
     c8 = np.zeros((steps, n_vars))
@@ -325,6 +497,34 @@ def assemble(scenario: Scenario, response: ResponseMap) -> Programme:
         c8,
         np.array(scenario.source_profile(), dtype=float) - released,
         "C8 source availability",
+    )
+
+    # --- C9: storage is a state, with a floor and a ceiling ---------------
+    storage_rows = _storage_rows(scenario, response, applied_rows, gamma, dt)
+    pools = scenario.network.reaches
+    area = np.array(response.storage_area)
+    nominal_storage = area * np.array([reach.pool.target_level_m for reach in pools])
+    full_storage = area * np.array([reach.pool.canal_depth_m for reach in pools])
+    span = blocks + 1
+    add(
+        np.vstack([storage_rows, -storage_rows]),
+        np.concatenate(
+            [
+                np.repeat(full_storage - nominal_storage, span),
+                np.repeat(nominal_storage, span),
+            ]
+        ),
+        "C9 pool storage between empty and full",
+    )
+
+    # --- C9': the two accounts of the same water agree to within a band ---
+    mean_level = _block_mean_levels(response, level_rows)
+    reconcile = storage_rows - np.repeat(area, span)[:, None] * mean_level
+    epsilon = np.repeat(area * scenario.limits.band_tolerance_m, span)
+    add(
+        np.vstack([reconcile, -reconcile]),
+        np.concatenate([epsilon, epsilon]),
+        "C9' storage agrees with the level",
     )
 
     # --- the cap on the fraction ------------------------------------------
@@ -354,6 +554,8 @@ def assemble(scenario: Scenario, response: ResponseMap) -> Programme:
         spread=spread,
         level_rows=level_rows,
         command_rows=command_rows,
+        applied_rows=applied_rows,
+        storage_rows=storage_rows,
         row_counts=counts,
     )
 
@@ -367,6 +569,11 @@ def movement_tie_break(programme: Programme) -> TieBreak:
     reproducible, and the schedule that is reported is the one a canal
     would rather run.
 
+    Measured on the **applied** flow, which is the water the gate passes.
+    Minimising the command instead would smooth a signal nobody sees and
+    leave the claim that the chosen schedule is the hydraulically smoothest
+    one untrue.
+
     The absolute value is linearised the usual way, with one auxiliary
     variable per gate and step bounding the movement from both sides.
     """
@@ -374,10 +581,10 @@ def movement_tie_break(programme: Programme) -> TieBreak:
     n_vars = programme.ratio.n_vars
     later = np.arange(size, steps * size)
     earlier = np.arange(0, (steps - 1) * size)
-    difference = programme.command_rows[later] - programme.command_rows[earlier]
+    difference = programme.applied_rows[later] - programme.applied_rows[earlier]
     base = (
-        programme.response.baseline_commands[later]
-        - programme.response.baseline_commands[earlier]
+        programme.response.baseline_applied[later]
+        - programme.response.baseline_applied[earlier]
     )
     n_extra = difference.shape[0]
 

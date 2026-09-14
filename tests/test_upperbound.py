@@ -161,7 +161,10 @@ def test_the_free_gate_plant_reproduces_the_closed_loop():
     commands = programme.commands_at(z)
     _, levels = run_plant(programme, commands, z)
 
-    assert np.abs(levels - programme.levels_at(z)).max() < 1.0e-12
+    # The programme's level index k is the level at the *start* of step k,
+    # and it now carries one sample more than the run has steps, so the
+    # comparison takes the first ``steps`` of them.
+    assert np.abs(levels - programme.levels_at(z)[: programme.steps]).max() < 1.0e-12
 
 
 def test_the_level_is_the_one_at_the_start_of_the_step():
@@ -193,7 +196,7 @@ def test_the_level_is_the_one_at_the_start_of_the_step():
             pool, applied[:, index], outflow, drawn[:, index]
         )[1:]
 
-    gap = np.abs(shifted - programme.levels_at(z)).max()
+    gap = np.abs(shifted - programme.levels_at(z)[: programme.steps]).max()
     assert gap > 1.0e-4, "the two readings of the level no longer differ"
     assert gap < 0.1, f"a step of level change of {gap} m is not a step of level change"
 
@@ -306,10 +309,13 @@ def test_the_rows_that_mention_the_controller_are_the_only_ones_replaced():
             "ratio capped at one",
         }
     )
-    travel = 2 * programme.response.size * (
-        programme.steps - programme.scenario.limits.warm_up_steps - 1
-    )
-    assert bound.ratio.a_ub.shape[0] == carried + travel
+    # C6 runs over every step now, not from the end of the warm-up: the
+    # exemption belongs to the level band and to nothing else. The storage
+    # state and its reconciliation band add four rows per pool and block,
+    # counting the block a run starts from.
+    travel = 2 * programme.response.size * (programme.steps - 1)
+    storage = 4 * programme.response.size * (programme.response.blocks + 1)
+    assert bound.ratio.a_ub.shape[0] == carried + travel + storage
 
 
 def test_row_counts_that_do_not_add_up_are_refused():
