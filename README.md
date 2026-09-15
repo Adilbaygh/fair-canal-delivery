@@ -208,5 +208,7 @@ corrects which programme's shadow prices the infeasibility certificate reports.
 Both faults are covered by regression tests, and the whole result archive in 0.2.0
 was re-solved by one version of the code.
 
+The archive built from the 0.2.0 tag is md5:eb26477035449abf98b6822b8632b140.
+
 The Zenodo **record** and both DOIs are public. The **files** are restricted
 while the article is under review, and open on acceptance.
