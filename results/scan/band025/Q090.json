@@ -80,7 +80,7 @@
         "corning-1-user"
       ]
     ],
-    "seconds": 9.984,
+    "seconds": 9.848,
     "shortfalls_m3": {
       "corning-1-user": 984.4562282869259,
       "corning-2-user": 1042.3654181861568,
@@ -208,7 +208,7 @@
         "corning-7-user": 0.9922625408975003,
         "corning-8-user": 0.9332197971789243
       },
-      "seconds": 0.599,
+      "seconds": 0.585,
       "spread": 0.0874467644634077,
       "status": "solved",
       "total": 7.3926353372952125,
@@ -235,7 +235,7 @@
         "corning-7-user": 0.9922624814878725,
         "corning-8-user": 0.9550420510369255
       },
-      "seconds": 0.552,
+      "seconds": 0.576,
       "spread": 0.08611880689478639,
       "status": "solved",
       "total": 7.325291759919341,
@@ -257,7 +257,7 @@
         "corning-7-user": 1.0,
         "corning-8-user": 1.0
       },
-      "seconds": 0.506,
+      "seconds": 0.511,
       "spread": 0.06192484075853788,
       "status": "solved",
       "total": 7.8127568815721515,
@@ -265,7 +265,7 @@
     },
     "B4": {
       "detail": {
-        "accuracy_bound": 8e-06,
+        "accuracy_bound": 9e-06,
         "refined": true,
         "stage_levels": [
           0.9540403254768008
@@ -298,7 +298,7 @@
         "corning-7-user": 0.9540393254768008,
         "corning-8-user": 0.9540393254768008
       },
-      "seconds": 8.576,
+      "seconds": 8.446,
       "spread": 1.0385185452638061e-16,
       "status": "solved",
       "total": 7.6323146038144065,
@@ -333,7 +333,7 @@
         "corning-7-user": 0.877593287110962,
         "corning-8-user": 0.8775932851544695
       },
-      "seconds": 4.147,
+      "seconds": 4.132,
       "spread": 6.1729399693417715e-09,
       "status": "solved",
       "total": 7.0207462549442194,

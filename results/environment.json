@@ -5,7 +5,7 @@
     "settle_margin_steps": 120,
     "steps_per_block": 15
   },
-  "git_commit": "9bf464a3f74bd5598f76d95ab4a3a230ec2ca5fe",
+  "git_commit": "7b2875894915655b1198e01b1e3aff761bb58fef",
   "package_version": "0.1.0",
   "packages": {
     "highspy": "not installed",
@@ -26,7 +26,7 @@
     "implementation": "CPython",
     "version": "3.13.5"
   },
-  "recorded_utc": "2026-09-15T05:43:20Z",
+  "recorded_utc": "2026-09-15T13:11:28Z",
   "solver": {
     "eps_feas": 1e-09,
     "eps_sat": 1e-06,

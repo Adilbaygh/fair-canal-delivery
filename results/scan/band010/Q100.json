@@ -51,7 +51,7 @@
         "corning-1-user"
       ]
     ],
-    "seconds": 4.891,
+    "seconds": 4.86,
     "shortfalls_m3": {},
     "stage_levels": [
       1.0
@@ -170,7 +170,7 @@
         "corning-7-user": 1.0,
         "corning-8-user": 1.0
       },
-      "seconds": 0.562,
+      "seconds": 0.574,
       "spread": 0.0,
       "status": "solved",
       "total": 8.0,
@@ -197,7 +197,7 @@
         "corning-7-user": 1.0,
         "corning-8-user": 1.0
       },
-      "seconds": 0.575,
+      "seconds": 0.571,
       "spread": 0.0,
       "status": "solved",
       "total": 8.0,
@@ -219,7 +219,7 @@
         "corning-7-user": 1.0,
         "corning-8-user": 1.0
       },
-      "seconds": 0.508,
+      "seconds": 0.515,
       "spread": 0.0,
       "status": "solved",
       "total": 8.0,
@@ -227,7 +227,7 @@
     },
     "B4": {
       "detail": {
-        "accuracy_bound": 8e-06,
+        "accuracy_bound": 9e-06,
         "refined": true,
         "stage_levels": [
           1.0
@@ -260,7 +260,7 @@
         "corning-7-user": 1.0,
         "corning-8-user": 1.0
       },
-      "seconds": 5.777,
+      "seconds": 5.742,
       "spread": 0.0,
       "status": "solved",
       "total": 8.0,
@@ -295,7 +295,7 @@
         "corning-7-user": 1.0,
         "corning-8-user": 1.0
       },
-      "seconds": 0.553,
+      "seconds": 0.547,
       "spread": 0.0,
       "status": "solved",
       "total": 8.0,

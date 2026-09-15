@@ -225,12 +225,28 @@ class LeximinResult:
     stage_saturated:
         The users that saturated at each stage, as sorted tuples of names.
     accuracy_bound:
-        ``n_users * eps_sat``: how far the reported levels may fall short
-        of the true lexicographic optimum.
+        How far the levels may fall short of the true lexicographic
+        optimum: ``n_users * eps_sat`` as the staged procedure returns it,
+        one stage's tolerance for each stage that may freeze a user early,
+        and one tolerance more once :func:`refine` has run, because the
+        tie-break holds each user only at its level less ``eps_sat``.
     marginals:
-        Shadow prices of the inequality constraints at the final stage,
-        for the infeasibility certificate. Non-positive by the solver's
-        convention for a minimisation with ``a_ub @ z <= b_ub``.
+        Shadow prices of the inequality constraints **of the first stage**
+        - the programme that sets the worst-off user's level - for the
+        infeasibility certificate. Non-positive by the solver's convention
+        for a minimisation with ``a_ub @ z <= b_ub``.
+
+        Which stage these come from is not a detail. A price means
+        "how much would the objective move per unit of this constraint",
+        and the staged procedure solves several objectives: the first
+        stage raises the worst-off user, each later stage raises somebody
+        already above that level, and :func:`refine` minimises gate
+        movement over the fair optima. The certificate's sentence - what
+        is in the way, and what a unit of it is worth - is about the
+        worst-off user, so it is the first stage's duals that answer it.
+        Taking the last stage's would price whatever holds the *best*-off
+        user down, and taking the tie-break's would price gate movement in
+        units of flow. Both were measured: ``scripts/check_duals.py``.
     n_programmes:
         How many linear programmes were solved, for the timing protocol.
     """
@@ -519,6 +535,7 @@ def solve_leximin(
     saturated_per_stage: list[tuple[str, ...]] = []
     solved = 0
     last_stage_result = None
+    first_stage_result = None
 
     while active:
         if len(levels) > programme.n_users:
@@ -534,6 +551,8 @@ def solve_leximin(
         )
         solved += 1
         last_stage_result = stage
+        if first_stage_result is None:
+            first_stage_result = stage
         level = float(stage.x[-1])
         levels.append(level)
 
@@ -547,7 +566,21 @@ def solve_leximin(
                 options=options,
             )
             solved += 1
-            reachable = -float(probe.fun)
+            # The objective of the probe is the row alone; the fraction is
+            # the row plus its offset, over the weight. Comparing the one
+            # against a level that means the other declared every user
+            # saturated at the first stage on any programme whose
+            # fractions have an offset - which is every programme written
+            # in deviations from nominal operation, where the offset is
+            # the fraction delivered by ordering nothing at all. The
+            # staged procedure then stopped after one stage and returned
+            # max-min where it promised leximin: the worst-off level was
+            # right, and every level above it was whatever vertex the
+            # solver happened to return.
+            reachable = (
+                -float(probe.fun)
+                + programme.ratio_offset[user] / programme.weights[user]
+            )
             if reachable <= level + eps_sat:
                 saturated.append(user)
 
@@ -571,7 +604,8 @@ def solve_leximin(
         stage_levels=tuple(levels),
         stage_saturated=tuple(saturated_per_stage),
         accuracy_bound=programme.n_users * eps_sat,
-        marginals=np.asarray(last_stage_result.ineqlin.marginals, dtype=float),
+        # The first stage, not the last: see LeximinResult.marginals.
+        marginals=np.asarray(first_stage_result.ineqlin.marginals, dtype=float),
         n_programmes=solved,
         eps_sat=eps_sat,
     )
@@ -658,8 +692,20 @@ def refine(
         ratios=programme.ratios_at(z),
         stage_levels=result.stage_levels,
         stage_saturated=result.stage_saturated,
-        accuracy_bound=result.accuracy_bound,
-        marginals=np.asarray(solution.ineqlin.marginals, dtype=float),
+        # One saturation tolerance more than the staged procedure's own
+        # bound, because the floors above are the levels it reached less
+        # exactly that: the refinement is allowed to let every user fall
+        # by eps_sat, so a schedule that has been through it can be that
+        # much further from the exact optimum. Carrying the staged bound
+        # through unchanged under-reported the reported schedule's own
+        # accuracy by one tolerance, in every result file and in the
+        # article's Section 2.3.
+        accuracy_bound=result.accuracy_bound + result.eps_sat,
+        # Carried through rather than replaced. This programme's duals
+        # price gate movement, and handing them to a certificate that
+        # reports them per cubic metre per second would be a category
+        # error - see LeximinResult.marginals.
+        marginals=result.marginals,
         n_programmes=result.n_programmes + 1,
         eps_sat=result.eps_sat,
         refined=True,

@@ -1,10 +1,15 @@
 """6 · What survived a change of configuration, and what did not.
 
-The scan was rerun three more times, changing one thing each time. The
-comparison between criteria barely moved. Where the canal can be operated
-at all moved a great deal. Both halves are on this page, because reporting
-only the first would be advocacy and reporting only the second would bury
-the result.
+The scan was rerun once for every assumption it rests on, changing one
+thing each time. The comparison between criteria barely moved. Where the
+canal can be operated at all moved a great deal. Both halves are on this
+page, because reporting only the first would be advocacy and reporting
+only the second would bury the result.
+
+How many runs there are is not written down here, and deliberately: the
+page reads the archive and shows what it finds. A count in prose is a
+number that a later scan can falsify quietly, and this one did - the
+sentence said three while the archive held nine.
 """
 
 from __future__ import annotations
@@ -16,29 +21,6 @@ from .. import i18n
 from .. import widgets as w
 from ..theme import COLORS
 from . import Context
-
-#: A short human sentence for each configuration, keyed by the label the
-#: scan wrote. A label the archive has and this table does not still shows,
-#: described from its own recorded settings.
-DESCRIBED: dict[str, tuple[str, str]] = {
-    "main": (
-        "олдиндан эълон қилинган конфигурация",
-        "the pre-registered configuration",
-    ),
-    "cut2e3": (
-        "кесиш частотаси пасайтирилди",
-        "the cut-off frequency lowered",
-    ),
-    "order4": (
-        "фильтр тартиби 4 га кўтарилди",
-        "the filter order raised to four",
-    ),
-    "budget": (
-        "ҳажм бюджетига ортиқча берилиш рухсат этилди",
-        "over-delivery allowed against the volume budget",
-    ),
-}
-
 
 def build(context: Context) -> QWidget:
     body = w.column(18)
@@ -158,13 +140,14 @@ def _overview(context: Context) -> QWidget:
 
 
 def _describe(archive: arc.Archive, label: str, context: Context) -> tuple[str, str]:
-    if label in DESCRIBED:
-        return DESCRIBED[label]
-    settings = archive.settings(label)
-    order = settings.get("filter_order")
-    cutoff = settings.get("cutoff_rad_per_s")
-    text = f"order {order}, {cutoff:g} rad/s" if cutoff is not None else str(order)
-    return (text, text)
+    """This page's one line about a configuration, in both languages.
+
+    The words live in :mod:`faircanal.gui.i18n`, which imports nothing but
+    the standard library, so they can be read - and tested - on a machine
+    with no toolkit installed. That is the same rule the page registry
+    follows, and it is the reason this function is three lines long.
+    """
+    return i18n.describe_configuration(archive.settings(label), label)
 
 
 # ---------------------------------------------------------------------- curves
@@ -174,8 +157,8 @@ def _curves(context: Context) -> QWidget:
     archive = context.archive
     card = w.Card(
         context.pick(
-            "Лексикографик жавоб, тўртта конфигурацияда",
-            "The lexicographic answer under all four configurations",
+            "Лексикографик жавоб, архивдаги ҳар бир конфигурацияда",
+            "The lexicographic answer under every configuration in the archive",
         ),
         context.pick(
             "Ҳар бир чизиқнинг тўлдирилган маркери — жадвал ҳали мавжуд бўлган энг "
@@ -192,7 +175,13 @@ def _curves(context: Context) -> QWidget:
         card.add(chart)
         return card
 
-    palette = [COLORS["accent"], COLORS["short"], COLORS["filled"], "#7a5ea8"]
+    # One colour per configuration in the archive, and enough of them: with
+    # four the tenth curve wore the second's colour, which on a chart of ten
+    # lines is not a small thing to get wrong.
+    palette = [
+        COLORS["accent"], COLORS["short"], COLORS["filled"], "#7a5ea8",
+        "#0b7285", "#b8860b", "#8b3a3a", "#2f6f3e", "#5f6caf", "#a0522d",
+    ]
     drawn = False
     for index, label in enumerate(archive.labels()):
         pairs = [

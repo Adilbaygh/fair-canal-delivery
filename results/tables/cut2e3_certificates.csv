@@ -6,8 +6,8 @@ percent,fulfilled,short,worst_user,worst_ratio,impossible,binding,digest
 80,0,8,corning-3-user,0.9166557668,,C8 source availability,4b643ffd4ea89deeeb1bf792043dffb79917ee17ae68eda54bf4bd69a91f6124
 75,0,8,corning-4-user,0.8958197085,,C8 source availability,cbbfe5e052b4eff7792f15c85f430e38b5c5fd9bda4ab920766be9f9753034ae
 70,0,8,corning-4-user,0.8749836503,,C8 source availability,13f75afd928db4c39e6e3e6c37d55793a13a8893c028a2337c481fd32a2eb5c0
-65,0,8,corning-4-user,0.84197096,,C8 source availability,7b6e01967df82d4bc48ea397e0fa7f6138cc9746662ec503cdf4ed33f82d597c
-60,0,8,corning-5-user,0.8040744177,,C8 source availability,fd03bb8269947aad98d4f4fe323b0963f53d1fedb9edaa5f21553f61e9512297
+65,0,8,corning-1-user,0.84197096,,C8 source availability,7b6e01967df82d4bc48ea397e0fa7f6138cc9746662ec503cdf4ed33f82d597c
+60,0,8,corning-1-user,0.8040744177,,C8 source availability,fd03bb8269947aad98d4f4fe323b0963f53d1fedb9edaa5f21553f61e9512297
 55,0,8,corning-1-user,0.7636180097,corning-1-user corning-2-user corning-3-user,C8 source availability,2e8379244dc696b21a70c12880d5e56110fa071917fd3877aecec937e5ea63a5
 50,0,8,corning-1-user,0.7208593262,corning-1-user corning-2-user corning-3-user,C8 source availability,47a3c1ac5953fd57167f680fa6c4908e2c6406efe3482d26d9f455eda30ff875
 45,0,8,,,,C8 source availability,4d5aa662522e59c5f88ea563e1d775e79dbd3681b638eb42ed55831f6dffd537

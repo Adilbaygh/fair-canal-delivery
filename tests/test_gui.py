@@ -171,16 +171,65 @@ def test_every_criterion_is_named_and_explained_in_both_languages():
 
 
 def test_every_provenance_word_is_translated():
-    for kind in ("observed", "derived", "assumed"):
+    for kind in ("observed", "derived", "assumed", "measured"):
         for language in i18n.LANGUAGES:
             assert i18n.provenance_label(language, kind).strip()
+            assert i18n.provenance_label(language, kind) != kind or language == "en"
 
 
-def test_an_unknown_constraint_family_is_shown_as_the_file_wrote_it():
-    """The families come from the data, so a new one must not vanish."""
-    assert i18n.family_label("uz", "C9 something new") == "C9 something new"
-    assert i18n.family_label("en", "C8 source availability") == "C8 source availability"
-    assert i18n.family_label("uz", "C8 source availability") != "C8 source availability"
+def test_every_family_the_certificate_can_report_is_translated():
+    """The window's vocabulary has to keep up with the programme's.
+
+    An unknown family falls back to the English string, which is the right
+    behaviour for a family nobody has named yet and the wrong one for a
+    family the certificate reports on every scarce point: the Uzbek window
+    would quietly turn English. When the programme went from six relaxable
+    families to nine, three of them had no label, and nothing failed. Now
+    something does.
+    """
+    from faircanal.certificate import RELAXABLE
+
+    for family in RELAXABLE:
+        assert i18n.family_label("en", family) == family
+        assert i18n.family_label("uz", family) != family, (
+            f"{family} has no Uzbek label, so the Uzbek window shows English"
+        )
+
+
+def test_every_configuration_the_window_names_is_named_in_both_languages():
+    for label, described in i18n.DESCRIBED.items():
+        assert len(described) == 2, label
+        for text in described:
+            assert text.strip(), label
+
+
+def test_a_configuration_the_window_has_never_heard_of_is_described_from_its_run():
+    """The fallback names what moved, not what did not.
+
+    It used to name the filter and nothing else, which described six of
+    the sensitivity runs - the ones that move the gate head, the outlet
+    headroom or the storage band - as the pre-registered configuration,
+    the one thing they are not. And it lives here, beside the other
+    tables, so that this test needs no toolkit: the words are data.
+    """
+    moved = i18n.describe_configuration(
+        {"filter_order": 3, "cutoff_rad_per_s": 3.0e-3, "gate_head_m": 0.08},
+        "head008-again",
+    )
+    assert all("0.08" in text for text in moved), moved
+
+    frozen = i18n.describe_configuration(
+        {"filter_order": 3, "cutoff_rad_per_s": 3.0e-3, "gate_head_m": 0.10},
+        "another-main",
+    )
+    assert all("0.1" not in text for text in frozen), frozen
+
+    silent = i18n.describe_configuration({}, "an-old-run")
+    assert all(text.strip() for text in silent)
+    assert silent != frozen, (
+        "a run that recorded no settings reads the same as one that used "
+        "the frozen ones"
+    )
 
 
 @pytest.mark.parametrize(

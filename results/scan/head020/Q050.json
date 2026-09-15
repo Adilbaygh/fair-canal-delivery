@@ -48,11 +48,11 @@
       "corning-1-user": 0.6915486274138594,
       "corning-2-user": 0.6915486274138594,
       "corning-3-user": 0.6915486274138594,
-      "corning-4-user": 0.7293394444177568,
-      "corning-5-user": 0.7350313726389857,
-      "corning-6-user": 0.8046085085333627,
-      "corning-7-user": 0.8318762412899489,
-      "corning-8-user": 0.8944904210079309
+      "corning-4-user": 0.7293394444176314,
+      "corning-5-user": 0.7350313726390171,
+      "corning-6-user": 0.8046085085329034,
+      "corning-7-user": 0.8318762412895034,
+      "corning-8-user": 0.8944904210083361
     },
     "relaxation": {
       "binding_families": [
@@ -86,29 +86,44 @@
     "report": "Delivery certificate for one-per-gate [ab381c6671d4]\nNOT FILLED: 8 of 8 orders. Worst is corning-3-user at 0.6915 of its demand (10494 m^3 short).\nNo allocation decision could have filled: corning-1-user (ceiling 0.7603), corning-2-user (ceiling 0.7593), corning-3-user (ceiling 0.7649) - the limit is in the canal, not in the sharing.\nIn the way, by what a unit of it is worth:\n  C2 delivered flow non-negative: 18 active, largest price 0.133757 per m^3/s\n  C5' command inside the linear model's range: 2 active, largest price 0.00725151 per m^3/s\n  C8 source availability: 6 active, largest price 25601.1 per m^3/s\nEverybody could be filled if these gave together: C8 source availability +4.549 m^3/s.",
     "saturated": [
       [
-        "corning-8-user",
-        "corning-7-user",
-        "corning-6-user",
-        "corning-5-user",
-        "corning-4-user",
         "corning-3-user",
         "corning-2-user",
         "corning-1-user"
+      ],
+      [
+        "corning-4-user"
+      ],
+      [
+        "corning-5-user"
+      ],
+      [
+        "corning-6-user"
+      ],
+      [
+        "corning-7-user"
+      ],
+      [
+        "corning-8-user"
       ]
     ],
-    "seconds": 9.172,
+    "seconds": 19.432,
     "shortfalls_m3": {
       "corning-1-user": 6607.028400795132,
       "corning-2-user": 6995.67713025367,
       "corning-3-user": 10493.515695380505,
-      "corning-4-user": 1023.0969001008793,
-      "corning-5-user": 667.7209409497561,
-      "corning-6-user": 1969.5462339837036,
-      "corning-7-user": 2542.0312316959735,
-      "corning-8-user": 3057.6675991901634
+      "corning-4-user": 1023.0969001013532,
+      "corning-5-user": 667.720940949677,
+      "corning-6-user": 1969.5462339883334,
+      "corning-7-user": 2542.031231702708,
+      "corning-8-user": 3057.6675991784196
     },
     "stage_levels": [
-      0.6915486274138594
+      0.6915486274138594,
+      0.7293394444176314,
+      0.7350313726390171,
+      0.8046085085329034,
+      0.8318762412895034,
+      0.8944904210083362
     ]
   },
   "cutoff_rad_per_s": 0.003,
@@ -116,7 +131,7 @@
   "determinism": {
     "l2_between_runs": 0.0,
     "same_ratios": true,
-    "tie_break_cost": 119.60358562455446
+    "tie_break_cost": 119.60358562426966
   },
   "filter_order": 3,
   "fraction": 0.5,
@@ -224,7 +239,7 @@
         "corning-7-user": 0.8518787176140641,
         "corning-8-user": 1.0
       },
-      "seconds": 0.553,
+      "seconds": 0.544,
       "spread": 0.12887744738158421,
       "status": "solved",
       "total": 6.232671933621184,
@@ -251,7 +266,7 @@
         "corning-7-user": 0.8837753504924197,
         "corning-8-user": 0.9859685770421863
       },
-      "seconds": 0.517,
+      "seconds": 0.535,
       "spread": 0.1306413591760537,
       "status": "solved",
       "total": 6.101744915450866,
@@ -273,7 +288,7 @@
         "corning-7-user": 1.0,
         "corning-8-user": 0.8782978851377795
       },
-      "seconds": 0.484,
+      "seconds": 0.514,
       "spread": 0.17532337700250233,
       "status": "solved",
       "total": 6.768050811278688,
@@ -281,43 +296,58 @@
     },
     "B4": {
       "detail": {
-        "accuracy_bound": 8e-06,
+        "accuracy_bound": 9e-06,
         "refined": true,
         "stage_levels": [
-          0.6915486274138594
+          0.6915486274138594,
+          0.7293394444176314,
+          0.7350313726390171,
+          0.8046085085329034,
+          0.8318762412895034,
+          0.8944904210083362
         ],
         "stage_saturated": [
           [
-            "corning-8-user",
-            "corning-7-user",
-            "corning-6-user",
-            "corning-5-user",
-            "corning-4-user",
             "corning-3-user",
             "corning-2-user",
             "corning-1-user"
+          ],
+          [
+            "corning-4-user"
+          ],
+          [
+            "corning-5-user"
+          ],
+          [
+            "corning-6-user"
+          ],
+          [
+            "corning-7-user"
+          ],
+          [
+            "corning-8-user"
           ]
         ],
-        "tie_break_cost": 119.60358562455446
+        "tie_break_cost": 119.60358562426966
       },
       "feasible": true,
       "fulfilled": false,
-      "n_programmes": 10,
+      "n_programmes": 30,
       "name": "lexicographic max-min",
       "ratios": {
         "corning-1-user": 0.6915476274138594,
         "corning-2-user": 0.6915476274138594,
         "corning-3-user": 0.6915476274138592,
-        "corning-4-user": 0.7293384444177567,
-        "corning-5-user": 0.7350303726389857,
-        "corning-6-user": 0.8046075085333627,
+        "corning-4-user": 0.7293384444176314,
+        "corning-5-user": 0.735030372639017,
+        "corning-6-user": 0.8046075085329034,
         "corning-7-user": 0.8318762412899489,
-        "corning-8-user": 0.8944936818774956
+        "corning-8-user": 0.8944936818776692
       },
-      "seconds": 7.642,
-      "spread": 0.07146051565069625,
+      "seconds": 17.81,
+      "spread": 0.07146051565070578,
       "status": "solved",
-      "total": 6.069989130999128,
+      "total": 6.0699891309987475,
       "worst": 0.6915476274138592
     },
     "B5": {
@@ -349,7 +379,7 @@
         "corning-7-user": 0.8318762412899489,
         "corning-8-user": 0.889430122441393
       },
-      "seconds": 15.059,
+      "seconds": 14.99,
       "spread": 0.06911941243758156,
       "status": "solved",
       "total": 6.143514549510165,

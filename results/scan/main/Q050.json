@@ -48,11 +48,11 @@
       "corning-1-user": 0.6915486274138589,
       "corning-2-user": 0.6915486274138589,
       "corning-3-user": 0.6915486274138588,
-      "corning-4-user": 0.7293394444177568,
-      "corning-5-user": 0.6915486274138589,
-      "corning-6-user": 0.8154791948396448,
-      "corning-7-user": 0.8318762412899489,
-      "corning-8-user": 0.8944904210079317
+      "corning-4-user": 0.7293394444177566,
+      "corning-5-user": 0.7350313726387432,
+      "corning-6-user": 0.8046085085329758,
+      "corning-7-user": 0.831876241289623,
+      "corning-8-user": 0.8944904210082573
     },
     "relaxation": {
       "binding_families": [
@@ -86,29 +86,44 @@
     "report": "Delivery certificate for one-per-gate [e1c44ca52c73]\nNOT FILLED: 8 of 8 orders. Worst is corning-3-user at 0.6915 of its demand (10494 m^3 short).\nNo allocation decision could have filled: corning-1-user (ceiling 0.7603), corning-2-user (ceiling 0.7593), corning-3-user (ceiling 0.7649) - the limit is in the canal, not in the sharing.\nIn the way, by what a unit of it is worth:\n  C2 delivered flow non-negative: 18 active, largest price 0.133757 per m^3/s\n  C5' command inside the linear model's range: 2 active, largest price 0.00725151 per m^3/s\n  C8 source availability: 6 active, largest price 25601.1 per m^3/s\nEverybody could be filled if these gave together: C8 source availability +4.549 m^3/s.",
     "saturated": [
       [
-        "corning-8-user",
-        "corning-7-user",
-        "corning-6-user",
-        "corning-5-user",
-        "corning-4-user",
         "corning-3-user",
         "corning-2-user",
         "corning-1-user"
+      ],
+      [
+        "corning-4-user"
+      ],
+      [
+        "corning-5-user"
+      ],
+      [
+        "corning-6-user"
+      ],
+      [
+        "corning-7-user"
+      ],
+      [
+        "corning-8-user"
       ]
     ],
-    "seconds": 10.686,
+    "seconds": 22.291,
     "shortfalls_m3": {
       "corning-1-user": 6607.028400795142,
       "corning-2-user": 6995.67713025368,
       "corning-3-user": 10493.515695380524,
-      "corning-4-user": 1023.0969001008793,
-      "corning-5-user": 777.2974589170756,
-      "corning-6-user": 1859.9697160163803,
-      "corning-7-user": 2542.0312316959735,
-      "corning-8-user": 3057.6675991901375
+      "corning-4-user": 1023.0969001008802,
+      "corning-5-user": 667.7209409503672,
+      "corning-6-user": 1969.5462339876037,
+      "corning-7-user": 2542.0312317009,
+      "corning-8-user": 3057.667599180704
     },
     "stage_levels": [
-      0.6915486274138588
+      0.6915486274138588,
+      0.7293394444177564,
+      0.7350313726387432,
+      0.8046085085329758,
+      0.831876241289623,
+      0.8944904210082572
     ]
   },
   "cutoff_rad_per_s": 0.003,
@@ -116,7 +131,7 @@
   "determinism": {
     "l2_between_runs": 0.0,
     "same_ratios": true,
-    "tie_break_cost": 121.48604633571236
+    "tie_break_cost": 119.60358562396976
   },
   "filter_order": 3,
   "fraction": 0.5,
@@ -224,7 +239,7 @@
         "corning-7-user": 0.9205740927631442,
         "corning-8-user": 1.0
       },
-      "seconds": 0.666,
+      "seconds": 0.642,
       "spread": 0.14491345757554083,
       "status": "solved",
       "total": 6.180991093713356,
@@ -251,7 +266,7 @@
         "corning-7-user": 0.9606006560531635,
         "corning-8-user": 0.9859685770421869
       },
-      "seconds": 0.581,
+      "seconds": 0.59,
       "spread": 0.15411908043176029,
       "status": "solved",
       "total": 6.136966469173892,
@@ -273,7 +288,7 @@
         "corning-7-user": 1.0,
         "corning-8-user": 0.8787074689619133
       },
-      "seconds": 0.538,
+      "seconds": 0.544,
       "spread": 0.17539525972167905,
       "status": "solved",
       "total": 6.768044813865251,
@@ -281,43 +296,58 @@
     },
     "B4": {
       "detail": {
-        "accuracy_bound": 8e-06,
+        "accuracy_bound": 9e-06,
         "refined": true,
         "stage_levels": [
-          0.6915486274138588
+          0.6915486274138588,
+          0.7293394444177564,
+          0.7350313726387432,
+          0.8046085085329758,
+          0.831876241289623,
+          0.8944904210082572
         ],
         "stage_saturated": [
           [
-            "corning-8-user",
-            "corning-7-user",
-            "corning-6-user",
-            "corning-5-user",
-            "corning-4-user",
             "corning-3-user",
             "corning-2-user",
             "corning-1-user"
+          ],
+          [
+            "corning-4-user"
+          ],
+          [
+            "corning-5-user"
+          ],
+          [
+            "corning-6-user"
+          ],
+          [
+            "corning-7-user"
+          ],
+          [
+            "corning-8-user"
           ]
         ],
-        "tie_break_cost": 121.48604633571236
+        "tie_break_cost": 119.60358562396976
       },
       "feasible": true,
       "fulfilled": false,
-      "n_programmes": 10,
+      "n_programmes": 30,
       "name": "lexicographic max-min",
       "ratios": {
         "corning-1-user": 0.691547627413859,
         "corning-2-user": 0.691547627413859,
         "corning-3-user": 0.6915476274138588,
-        "corning-4-user": 0.7293384444177567,
-        "corning-5-user": 0.691547627413859,
-        "corning-6-user": 0.8154781948396448,
+        "corning-4-user": 0.7293384444177565,
+        "corning-5-user": 0.7350303726387433,
+        "corning-6-user": 0.8046075085329758,
         "corning-7-user": 0.8318762412899489,
-        "corning-8-user": 0.8944936818774966
+        "corning-8-user": 0.8944936818776532
       },
-      "seconds": 10.372,
-      "spread": 0.07565425105616679,
+      "seconds": 20.32,
+      "spread": 0.07146051565071287,
       "status": "solved",
-      "total": 6.037377072080282,
+      "total": 6.069989130998654,
       "worst": 0.6915476274138588
     },
     "B5": {
@@ -349,7 +379,7 @@
         "corning-7-user": 0.8318762412899489,
         "corning-8-user": 0.8894301230304141
       },
-      "seconds": 17.546,
+      "seconds": 16.674,
       "spread": 0.06911941243758177,
       "status": "solved",
       "total": 6.143514549795224,
@@ -373,7 +403,7 @@
       "feasible": true,
       "n_programmes": 1,
       "name": "free gates, an upper bound",
-      "seconds": 41.259,
+      "seconds": 37.997,
       "status": "level only",
       "worst": 0.7593341693192519
     }

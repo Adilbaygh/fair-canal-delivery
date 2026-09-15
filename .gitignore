@@ -39,6 +39,20 @@
 !/scripts/make_explorer.py
 !/scripts/check_submission.py
 
+# The measurements the article and the model document quote. Each one
+# prints a number that is claimed somewhere, and a claim nobody can
+# re-run is an assertion: check_one_at_a_time is named in the article
+# itself, check_tie_break produces the distances and costs of Section 3,
+# check_duals shows which programme's shadow prices the certificate
+# reports, check_digests re-derives every archived digest, and
+# check_storage_band measures the reconciliation band the model declares
+# rather than assumes. None of them reads a private path.
+!/scripts/check_one_at_a_time.py
+!/scripts/check_tie_break.py
+!/scripts/check_duals.py
+!/scripts/check_digests.py
+!/scripts/check_storage_band.py
+
 # --- never published, wherever they appear -------------------------------
 **/__pycache__/
 *.py[cod]

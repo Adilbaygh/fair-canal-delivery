@@ -39,6 +39,7 @@ def sharing_programme(
     user_caps: list[float | None] | None = None,
     weights: list[float] | None = None,
     free_variable: bool = False,
+    offset: float = 0.0,
 ) -> RatioProgramme:
     """One shared source, one delivery fraction per user.
 
@@ -49,6 +50,14 @@ def sharing_programme(
 
     The cap at one lives in the bounds on ``r``, where it belongs: it is a
     modelling decision of this study, not a property of the solver.
+
+    ``offset`` writes part of each fraction outside the decision vector.
+    The stored variable becomes ``r_i - offset`` and the programme declares
+    ``ratio_offset = offset``, with the bound and the coupling row moved by
+    the same amount, so the feasible set and every fraction are unchanged -
+    only the bookkeeping differs. The canal's own programme is written this
+    way, in deviations from nominal operation, and nothing that reads a
+    fraction may notice the difference.
     """
     n = len(demands)
     n_vars = 2 * n + (1 if free_variable else 0)
@@ -66,10 +75,10 @@ def sharing_programme(
         row[n + i] = 1.0
         row[i] = -1.0 / demand
         rows.append(row)
-        rhs.append(0.0)
+        rhs.append(-offset)
 
     bounds: list[tuple[float | None, float | None]] = [(0.0, caps[i]) for i in range(n)]
-    bounds += [(0.0, 1.0)] * n
+    bounds += [(0.0 - offset, 1.0 - offset)] * n
     if free_variable:
         bounds.append((0.0, 1.0))
 
@@ -82,7 +91,7 @@ def sharing_programme(
         a_ub=sparse.csr_matrix(np.array(rows)),
         b_ub=np.array(rhs, dtype=float),
         ratio_rows=ratio_rows,
-        ratio_offset=np.zeros(n),
+        ratio_offset=np.full(n, offset),
         weights=np.array(weights or [1.0] * n, dtype=float),
         names=tuple(f"u{i + 1}" for i in range(n)),
         bounds=tuple(bounds),
@@ -117,6 +126,72 @@ def test_a_capped_user_is_locked_and_the_rest_share_what_is_left():
     assert result.ratios == pytest.approx([0.65, 0.65, 0.2], abs=1e-7)
     assert result.stage_levels == pytest.approx([0.2, 0.65], abs=1e-7)
     assert result.stage_saturated == (("u3",), ("u1", "u2"))
+
+
+def test_the_answer_does_not_depend_on_where_the_constant_is_written():
+    """The same fraction, split differently between row and offset.
+
+    A fraction is ``(ratio_rows @ z + ratio_offset) / w``. Nothing says
+    how much of a constant term lives in the row and how much in the
+    offset: shifting a constant from one to the other and compensating in
+    the bound describes the same problem, so it must give the same
+    answer.
+
+    It did not. The saturation test maximised the row alone and compared
+    the result against a level that meant the whole fraction, so on any
+    programme with a non-zero offset every user was declared saturated at
+    the first stage. The procedure stopped there and returned max-min
+    where it promised leximin - the worst-off level correct, every level
+    above it whatever vertex the solver happened to return. Every
+    programme in this file had a zero offset, which is why nothing failed;
+    the canal's own programme is written in deviations from nominal
+    operation, where the offset is one.
+    """
+    plain = sharing_programme(
+        [10.0, 10.0, 10.0], capacity=15.0, user_caps=[None, None, 2.0]
+    )
+    shifted = sharing_programme(
+        [10.0, 10.0, 10.0], capacity=15.0, user_caps=[None, None, 2.0], offset=1.0
+    )
+
+    first, second = solve_leximin(plain), solve_leximin(shifted)
+    assert second.ratios == pytest.approx(first.ratios, abs=1e-7)
+    assert second.stage_levels == pytest.approx(first.stage_levels, abs=1e-7)
+    assert second.stage_saturated == first.stage_saturated
+    assert len(second.stage_levels) == 2, (
+        "the offset collapsed the procedure to a single stage, which is "
+        "max-min and not leximin"
+    )
+
+
+def test_a_user_that_can_still_be_raised_is_not_declared_saturated():
+    """The bug in its smallest form, stated as the property it broke.
+
+    A user sitting strictly above the common level, in a point the
+    procedure itself returned, cannot be saturated at that level: the
+    point is the witness. This checks the record rather than the internals
+    - every user the procedure locks at a stage must be one that the
+    returned schedule leaves at that stage's level, to within the
+    tolerance.
+    """
+    shifted = sharing_programme(
+        [10.0, 8.0, 6.0, 4.0],
+        capacity=9.0,
+        user_caps=[1.0, 2.0, None, None],
+        offset=1.0,
+    )
+    result = solve_leximin(shifted)
+    index = {name: i for i, name in enumerate(shifted.names)}
+    assert len(result.stage_levels) >= 2, (
+        "the offset collapsed the procedure to a single stage, which is "
+        "max-min and not leximin"
+    )
+    for level, names in zip(result.stage_levels, result.stage_saturated):
+        for name in names:
+            assert result.ratios[index[name]] == pytest.approx(level, abs=1e-5), (
+                f"{name} was locked at {level} but the returned schedule "
+                f"leaves it at {result.ratios[index[name]]}"
+            )
 
 
 def test_the_worst_off_user_is_raised_at_the_cost_of_the_total():
@@ -244,6 +319,45 @@ def test_marginals_are_returned_for_the_certificate():
     assert abs(result.marginals[0]) > 1e-9, "the shared source must price"
 
 
+def test_the_prices_answer_for_the_worst_off_user_not_the_best_off():
+    """Whose objective the shadow prices belong to.
+
+    Three users share 15 units and user 3 may take at most 2, so the
+    worst-off level is 0.2 and it is that user's own cap, not the shared
+    source, that sets it: at the first stage only 6 of the 15 units are
+    spoken for. The second stage then shares what is left and empties the
+    source.
+
+    So the source is tight at the schedule that comes back, and its price
+    is nevertheless zero - a unit more source would not lift the worst-off
+    user at all. That is the property the certificate needs, because its
+    sentence is about the worst-off user. Built from the last stage's
+    duals it would name the source as what stands in the way of a user the
+    source cannot help; built from the tie-break's it would report the
+    price of gate movement in units of flow.
+    """
+    programme = sharing_programme(
+        [10.0, 10.0, 10.0], capacity=15.0, user_caps=[None, None, 2.0],
+        free_variable=True,
+    )
+    result = solve_leximin(programme)
+    assert len(result.stage_levels) == 2
+    assert result.z[:3].sum() == pytest.approx(15.0, abs=1e-7), (
+        "the second stage should empty the source; if it does not, this "
+        "test no longer distinguishes the two sets of duals"
+    )
+    assert abs(result.marginals[0]) <= 1e-9, (
+        "the shared source is priced although it does not hold the "
+        "worst-off user down: these are a later stage's duals"
+    )
+
+    refined = refine(programme, result, flat_direction_tie_break(programme, +1.0))
+    assert refined.marginals == pytest.approx(result.marginals), (
+        "the tie-break's duals price gate movement, not water, and must "
+        "not replace the first stage's"
+    )
+
+
 def test_the_number_of_programmes_solved_is_reported():
     """For the timing protocol: the cost is quadratic in the user count."""
     programme = sharing_programme([10.0, 10.0, 10.0], capacity=12.0)
@@ -266,6 +380,27 @@ def flat_direction_tie_break(programme: RatioProgramme, sign: float) -> TieBreak
         b_ub=np.zeros(0),
         cost=cost,
         bounds_extra=(),
+    )
+
+
+def test_the_tie_break_costs_one_more_tolerance_and_says_so():
+    """What is reported is the refined schedule, so the bound is its own.
+
+    The tie-break holds each user at the level the stages reached *less*
+    one saturation tolerance - otherwise the same rounding that produced
+    those levels could make the refinement infeasible - so a schedule that
+    has been through it can be one tolerance further from the exact
+    optimum than the staged procedure's own bound admits. That extra
+    tolerance was not carried, and the bound went into every result file
+    and into the article one tolerance too small.
+    """
+    programme = sharing_programme([10.0, 10.0, 10.0], capacity=12.0)
+    staged = solve_leximin(programme, eps_sat=1e-6)
+    refined = refine(programme, staged, flat_direction_tie_break(programme, +1.0))
+    assert refined.refined
+    assert refined.accuracy_bound == pytest.approx(staged.accuracy_bound + 1e-6)
+    assert refined.accuracy_bound == pytest.approx(
+        (programme.n_users + 1) * 1e-6
     )
 
 

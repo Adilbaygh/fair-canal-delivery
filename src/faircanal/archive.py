@@ -243,6 +243,36 @@ class Point:
     def blocks(self) -> int | None:
         return self.payload.get("blocks")
 
+    # The settings the eleven-family programme added. A point written by an
+    # older scan carries none of them, so each returns None there rather
+    # than a frozen default: "this run did not record it" and "this run
+    # used the frozen value" are different statements, and a window that
+    # printed the second when it knew only the first would be inventing a
+    # provenance.
+    @property
+    def gate_head_m(self) -> "float | None":
+        return self.payload.get("gate_head_m")
+
+    @property
+    def outlet_headroom(self) -> "float | None":
+        return self.payload.get("outlet_headroom")
+
+    @property
+    def band_tolerance_m(self) -> "float | None":
+        return self.payload.get("band_tolerance_m")
+
+    @property
+    def announce_block(self) -> "int | None":
+        return self.payload.get("announce_block")
+
+    @property
+    def cap_scale(self) -> "float | None":
+        return self.payload.get("cap_scale")
+
+    @property
+    def demand_scale(self) -> "float | None":
+        return self.payload.get("demand_scale")
+
     @property
     def users(self) -> tuple[str, ...]:
         listed = self.payload.get("users") or []
@@ -450,7 +480,14 @@ class Archive:
         return tuple(item for item in found if item is not None)
 
     def settings(self, label: str) -> dict:
-        """The configuration a label was run with, taken from its own files."""
+        """The configuration a label was run with, taken from its own files.
+
+        Every setting a sensitivity run can move is here, because a window
+        that can only read the filter can only tell the filter runs apart:
+        six of the scans differ from the pre-registered one in the gate
+        head, the outlet headroom or the storage band alone, and described
+        by filter and budget they would all read as the pre-registered run.
+        """
         for point in self.points(label):
             return {
                 "filter_order": point.filter_order,
@@ -458,6 +495,12 @@ class Archive:
                 "overshoot": point.overshoot,
                 "blocks": point.blocks,
                 "horizon_steps": point.horizon_steps,
+                "gate_head_m": point.gate_head_m,
+                "outlet_headroom": point.outlet_headroom,
+                "band_tolerance_m": point.band_tolerance_m,
+                "announce_block": point.announce_block,
+                "cap_scale": point.cap_scale,
+                "demand_scale": point.demand_scale,
             }
         return {}
 

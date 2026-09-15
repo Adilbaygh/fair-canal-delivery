@@ -1,9 +1,9 @@
 percent,code,status,worst,total,spread,programmes,seconds
-100,B1,solved,1,8,0,1,0.903
-100,B2,solved,1,8,0,2,0.917
-100,B3,solved,1,8,1.359739956e-16,1,0.702
-100,B4,solved,1,8,0,10,8.453
-100,B5,solved,1,8,0,1,0.811
+100,B1,solved,1,8,0,1,0.901
+100,B2,solved,1,8,0,2,0.898
+100,B3,solved,1,8,1.359739956e-16,1,0.706
+100,B4,solved,1,8,0,10,8.418
+100,B5,solved,1,8,0,1,0.849
 95,B1,infeasible,,,,,
 95,B2,infeasible,,,,,
 95,B3,infeasible,,,,,
