@@ -42,6 +42,16 @@ SCANS = {
     "cut2e3": "order 3, cut-off 2 mrad/s",
     "order4": "order 4, cut-off 3 mrad/s",
     "budget": "order 3, cut-off 3 mrad/s, volume budget +50%",
+    # The assumptions the eleven-family programme rests on, moved one at a
+    # time away from their frozen values (kappa 1.5, head 0.10 m, band
+    # 0.15 m). The head cannot go below 0.076 m: there the narrowest gate
+    # stops passing the flow its own reach already carries.
+    "kappa125": "outlet headroom 1.25x nominal",
+    "kappa200": "outlet headroom 2.00x nominal",
+    "head008": "gate rating head 0.08 m",
+    "head020": "gate rating head 0.20 m",
+    "band010": "storage reconciliation band 0.10 m",
+    "band025": "storage reconciliation band 0.25 m",
 }
 CODES = ("B1", "B2", "B3", "B4", "B5", "M1")
 NAMES = {

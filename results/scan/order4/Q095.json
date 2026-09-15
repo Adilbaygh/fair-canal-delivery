@@ -1,8 +1,11 @@
 {
+  "announce_block": 1,
+  "band_tolerance_m": 0.15,
   "blocks": 8,
   "bound_method": "highs",
   "bound_time_limit_s": null,
   "bound_tolerance": null,
+  "cap_scale": 1.0,
   "certificate": {
     "binding": [],
     "ceilings": {
@@ -15,7 +18,7 @@
       "corning-7-user": null,
       "corning-8-user": null
     },
-    "digest": "42b79ae2c3fc230f8b5ba37ec40983a97b3958ba44e38665cc5d91111cec8fb0",
+    "digest": "a349c4bcb8fd34737227c823d4e3ad59a4e02d3426d434af15eee640a0a1796e",
     "fulfilled": false,
     "impossible_users": [],
     "ratios": {},
@@ -23,26 +26,32 @@
       "binding_families": [
         "C8 source availability"
       ],
-      "cost": 4.8407120386048035e-06,
+      "cost": 4.864004877903879e-06,
       "feasible": true,
       "slacks": {
         "C2 delivered flow non-negative": 0.0,
         "C3 volume budget": 0.0,
         "C5 gate flow inside the reach's conveyance": 0.0,
+        "C5' command inside the linear model's range": 0.0,
         "C6 gate travel rate": 0.0,
         "C7 level inside its band": 0.0,
-        "C8 source availability": 5.3247832424652836e-05
+        "C8 source availability": 5.3504053656942673e-05,
+        "C9 pool storage between empty and full": 0.0,
+        "C9' storage agrees with the level": 0.0
       },
       "units": {
         "C2 delivered flow non-negative": "m^3/s",
         "C3 volume budget": "m^3",
         "C5 gate flow inside the reach's conveyance": "m^3/s",
+        "C5' command inside the linear model's range": "m^3/s",
         "C6 gate travel rate": "m^3/s per step",
         "C7 level inside its band": "m",
-        "C8 source availability": "m^3/s"
+        "C8 source availability": "m^3/s",
+        "C9 pool storage between empty and full": "m^3",
+        "C9' storage agrees with the level": "m^3"
       }
     },
-    "report": "Delivery certificate for one-per-gate [42b79ae2c3fc]\nNO SCHEDULE EXISTS: not one order can be met on these terms, however the water is shared.\nA schedule would exist if these gave together: C8 source availability +5.325e-05 m^3/s.",
+    "report": "Delivery certificate for one-per-gate [a349c4bcb8fd]\nNO SCHEDULE EXISTS: not one order can be met on these terms, however the water is shared.\nA schedule would exist if these gave together: C8 source availability +5.35e-05 m^3/s.",
     "saturated": [],
     "shortfalls_m3": {
       "corning-1-user": 21420.0,
@@ -57,11 +66,81 @@
     "stage_levels": []
   },
   "cutoff_rad_per_s": 0.003,
+  "demand_scale": 1.0,
   "filter_order": 4,
   "fraction": 0.95,
+  "frozen_settings": {
+    "announce_blocks": 1,
+    "band_area": "backwater",
+    "band_tolerance_m": 0.15,
+    "blocks": 8,
+    "conveyance_efficiency": 1.0,
+    "demand_floor_m3": 1.0,
+    "gamma_delivery": 0.0,
+    "gate_head_m": 0.1,
+    "lead_blocks": 2,
+    "outlet_headroom": 1.5,
+    "ratio_cap": 1.0,
+    "source_ramp_steps": 15,
+    "travel_fraction": 0.25,
+    "warm_up_steps": 15
+  },
+  "gate_head_m": 0.1,
   "horizon_steps": 240,
   "label": "order4",
+  "outlet_headroom": 1.5,
   "overshoot": 0.0,
+  "scenario": {
+    "announced_block": 1,
+    "band_tolerance_m": 0.15,
+    "capacity_m3_s": [
+      8.693269807966676,
+      8.693269807966676,
+      12.517971661166069,
+      14.371160852613546,
+      14.371160852613546,
+      18.976660097816627,
+      18.976660097816627,
+      18.976660097816627
+    ],
+    "demand_m3": 138600.0,
+    "demand_scale": 1.0,
+    "gate_capacity_m3_s": [
+      7.689920428717063,
+      7.689920428717063,
+      10.765888600203889,
+      10.765888600203889,
+      13.756413211371632,
+      13.756413211371632,
+      13.756413211371632,
+      null
+    ],
+    "max_order_m3_s": [
+      3.4499999999999997,
+      1.7999999999999998,
+      1.2000000000000002,
+      0.30000000000000004,
+      0.44999999999999996,
+      4.050000000000001,
+      2.7,
+      2.55
+    ],
+    "outlet_headroom": 1.5,
+    "row_counts": {
+      "C2 delivered flow non-negative": 1920,
+      "C3 volume budget": 8,
+      "C5 gate flow inside the reach's conveyance": 3840,
+      "C5' command inside the linear model's range": 3840,
+      "C6 gate travel rate": 3824,
+      "C7 level inside its band": 3616,
+      "C8 source availability": 240,
+      "C9 pool storage between empty and full": 144,
+      "C9' storage agrees with the level": 144,
+      "ratio capped at one": 8
+    },
+    "rows": 17584,
+    "variables": 64
+  },
   "settle_margin_steps": 120,
   "source_m3_s": 10.45,
   "users": [

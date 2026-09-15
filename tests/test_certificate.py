@@ -400,6 +400,41 @@ def test_the_digest_survives_a_different_machine_and_not_a_different_problem():
     assert _digest(model(0.5)) != before
 
 
+def test_the_digest_separates_two_canals_whose_gates_differ():
+    """The second collision, found the same way as the first.
+
+    Two runs of the finished scan - the pre-registered one and the
+    narrow-gate sensitivity run - returned 0.6915 and 0.6534 at half
+    supply under the same digest, because the payload carried each
+    reach's conveyance and not the gate the water has to pass to get into
+    it. Different canal, different answer, same sixteen hex digits.
+
+    A gate the source publishes no limit for hashes as null rather than
+    as a large number, so "none published" cannot be confused with "this
+    wide" either.
+    """
+    programme = model(0.7)
+    limits = programme.scenario.limits
+    narrower = replace(
+        limits,
+        gate_capacity_m3_s=tuple(
+            0.9 * value for value in limits.capacity_m3_s
+        ),
+    )
+    other = replace(programme.scenario, limits=narrower)
+    assert _digest(replace(programme, scenario=other)) != _digest(programme)
+
+    payload = digest_payload(replace(programme, scenario=other))
+    assert payload["gate_capacity_m3_s"] is not None
+    wide_open = replace(
+        narrower, gate_capacity_m3_s=tuple(float("inf") for _ in limits.capacity_m3_s)
+    )
+    unpublished = digest_payload(
+        replace(programme, scenario=replace(programme.scenario, limits=wide_open))
+    )
+    assert unpublished["gate_capacity_m3_s"] == [None] * len(limits.capacity_m3_s)
+
+
 def test_the_digest_separates_two_filters_that_differ():
     """The collision this digest was fixed to stop.
 

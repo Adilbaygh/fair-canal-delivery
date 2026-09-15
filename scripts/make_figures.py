@@ -288,15 +288,29 @@ def figure_1() -> list[Path]:
                           marker="_", markersize=7, markeredgewidth=1.1,
                           label=STYLE["M1"]["label"]))
 
-    # The bound sits on top of the lexicographic answer everywhere but one
-    # point. That coincidence is the result, so it is said rather than left
-    # for the reader to notice that two curves are one.
-    edge = cliff(table)
-    if edge is not None and table["M1"].get(edge) is not None:
-        gap = table["M1"][edge] - table["B4"][edge]
+    # The bound sits on top of the lexicographic answer at most points.
+    # That coincidence is the result, so it is said rather than left for
+    # the reader to notice that two curves are one - and where it stops
+    # being a coincidence is said too, counted rather than assumed. The
+    # first version of this annotation had the word "only" written into
+    # it, which stayed true until the programme gained the families that
+    # made the bound strict at a second point.
+    apart = sorted(
+        (
+            (table["M1"][percent] - table["B4"][percent], percent)
+            for percent in table["B4"]
+            if table["M1"].get(percent) is not None
+            and table["B4"].get(percent) is not None
+            and table["M1"][percent] - table["B4"][percent] > 5.0e-5
+        ),
+        reverse=True,
+    )
+    if apart:
+        gap, percent = apart[0]
+        where = "only here" if len(apart) == 1 else f"most here of {len(apart)}"
         left.annotate(
-            f"M1 exceeds B4\nonly here (+{gap:.3f})",
-            xy=(edge, table["M1"][edge]), xytext=(30.5, 0.90),
+            f"M1 exceeds B4\n{where} (+{gap:.3f})",
+            xy=(percent, table["M1"][percent]), xytext=(30.5, 0.90),
             fontsize=7, color=MUTED, ha="left", va="top", linespacing=1.4,
             arrowprops=dict(arrowstyle="-", color=MUTED, linewidth=0.6,
                             shrinkA=1, shrinkB=2),
@@ -534,7 +548,8 @@ CAPTIONS = {
         "fraction under each criterion, against source availability as a "
         "percentage of aggregate demand; the shaded band marks the region in "
         "which no feasible schedule exists. The free-gate bound M1 coincides "
-        "with the lexicographic answer B4 at every point but one. "
+        "with the lexicographic answer B4 at nine of the eleven feasible "
+        "points and stands strictly above it at the two scarcest. "
         "(**b**) What the lexicographic criterion gains for the worst-off user "
         "over leaving the order unchanged, at the same points"
     ),
@@ -548,20 +563,26 @@ CAPTIONS = {
         "user strictly more"
     ),
     3: (
-        "The filter decides whether a schedule exists at all. (**a**) Worst-off "
-        "fraction under the lexicographic criterion for three filter "
-        "configurations; the filled marker on each curve is the lowest supply "
-        "at which a schedule still exists. Raising the filter order from three "
-        "to four moves that edge from 50% to 95% of demand. (**b**) The range "
-        "of source availability over which the canal can be operated at all: "
-        "lowering the cut-off widens it by five points of demand, while "
-        "raising the filter order collapses it to full supply alone"
+        "The filter's order decides whether a schedule exists at all; its "
+        "cut-off does not. (**a**) Worst-off fraction under the lexicographic "
+        "criterion for three filter configurations; the filled marker on each "
+        "curve is the lowest supply at which a schedule still exists. Raising "
+        "the order from three to four moves that edge from 50% of demand to "
+        "full supply: at order four nothing below 100% can be delivered at "
+        "all. (**b**) The range of source availability over which the canal "
+        "can be operated: lowering the cut-off from three to two millirad per "
+        "second leaves that range where it is and changes only what is "
+        "delivered inside it, while raising the order collapses it to a single "
+        "point"
     ),
     4: (
         "The advantage does not come from releasing more water. Allowing each "
-        "user to receive up to 50% more than the demand leaves the "
-        "lexicographic answer unchanged at all eleven feasible points, to four "
-        "decimal places, while the unchanged order moves in both directions"
+        "user to receive up to 50% more than it demanded changes nothing: "
+        "every cross lands on its own circle, for the lexicographic criterion "
+        "and for the unchanged order alike, at all eleven feasible points and "
+        "in every digit the scan records. The certificates say why - the "
+        "volume budget C3 is not active anywhere in the scan, so there is "
+        "nothing for a larger budget to relax"
     ),
 }
 

@@ -180,13 +180,30 @@ def make_limits(
 
     ``gate_head_m`` is the head drop the gate limit is read at. It is
     assumed, not published, so it is a flag with a frozen default and the
-    value used is recorded with the results; ``cap_scale`` exists for the
-    scarcity sensitivity runs, where the interesting question is what
-    binds when the canal, rather than the source, is the tight thing.
+    value used is recorded with the results. It cannot be lowered without
+    limit: below about 0.076 m the narrowest gate can no longer pass the
+    flow its own reach already carries, and the scenario is refused
+    rather than solved - which is itself worth knowing, since it says the
+    assumed rating head sits only a third above the point where this
+    canal stops making sense.
+
+    ``cap_scale`` exists for the runs that ask what binds when the canal,
+    rather than the source, is the tight thing. It scales the *headroom*
+    above the flow the reach already carries, not the conveyance itself:
+    a conveyance multiplied by a tenth would fall below that flow, which
+    is not a tighter canal but an impossible one. At ``cap_scale = 1`` the
+    two definitions agree, so the frozen run is unaffected. The gate's
+    travel rate stays tied to the unscaled conveyance, because how fast a
+    gate moves is a property of the gate and not of how much room the
+    reach has.
     """
     full = [
-        cap_scale * uniform_discharge(reach.pool, reach.pool.canal_depth_m)
+        uniform_discharge(reach.pool, reach.pool.canal_depth_m)
         for reach in network.reaches
+    ]
+    nominal = network.steady_discharges
+    capacity = [
+        base + (top - base) * cap_scale for top, base in zip(full, nominal)
     ]
     gates = corning_gate_limits(gate_head_m)
     if len(gates) != len(full):
@@ -194,8 +211,8 @@ def make_limits(
             f"the gate table has {len(gates)} entries for {len(full)} reaches"
         )
     return Limits(
-        capacity_m3_s=tuple(full),
-        nominal_m3_s=network.steady_discharges,
+        capacity_m3_s=tuple(capacity),
+        nominal_m3_s=nominal,
         level_band_m=tuple(
             (
                 -(reach.pool.canal_depth_m - reach.pool.target_level_m),
@@ -371,6 +388,59 @@ def describe_certificate(certificate) -> dict:
 # ---------------------------------------------------------------------------
 
 
+def scenario_for(
+    fraction: float,
+    network,
+    limits,
+    *,
+    overshoot: float = OVERSHOOT,
+    settle_margin: int = SETTLE_MARGIN_STEPS,
+    announced_block: int = ANNOUNCE_BLOCKS,
+    outlet_headroom: float = OUTLET_HEADROOM,
+    demand_scale: float = 1.0,
+):
+    """The scan's scenario at one supply level - one definition of it.
+
+    The delivery window is the one agreed with the farmers, and it does
+    not move when the filter gets slower. That is the whole premise: the
+    question this study exists to answer is whether the water arrives
+    inside the agreed window, so a window that stretched to accommodate a
+    slower filter would answer it by definition.
+
+    It has to be said explicitly because the scenario's default is the end
+    of the horizon, and the horizon has to grow to hold a longer filter's
+    tail. Left to the default, a longer tail lengthened the window, the
+    window lengthened the demand - nominal draw across the window is what
+    demand means - and the same eight order blocks were asked to fill 35%
+    more water. Feasibility collapsed, and it would have been read as the
+    filter's doing. Measured: at a margin of 193 the demand rose from
+    138,600 to 186,780 cubic metres with no change to the filter at all.
+
+    Anything that needs to rebuild a scan point - the scan itself, or a
+    tool that recomputes one field of a finished record - calls this,
+    because a second copy of these arguments is a second instance, and
+    two instances that differ by a keyword nobody noticed is exactly the
+    kind of difference this study exists to make visible.
+    """
+    window = (
+        LEAD_BLOCKS * STEPS_PER_BLOCK,
+        horizon_for(BLOCKS, STEPS_PER_BLOCK, SETTLE_MARGIN_STEPS) - 1,
+    )
+    return one_user_per_gate(
+        network,
+        BLOCKS,
+        limits,
+        source_discharge_m3_s=fraction * network.aggregate_demand,
+        window=window,
+        demand_scale=demand_scale,
+        lead_blocks=LEAD_BLOCKS,
+        announced_block=announced_block,
+        outlet_headroom=outlet_headroom,
+        overshoot=overshoot,
+        settle_margin=settle_margin,
+    )
+
+
 def run_point(
     fraction: float,
     network,
@@ -389,37 +459,15 @@ def run_point(
     bound_level_only: bool = False,
 ) -> dict:
     """Fill in whatever this point is still missing, and say what it did."""
-    # The delivery window is the one agreed with the farmers, and it does
-    # not move when the filter gets slower. That is the whole premise: the
-    # question this study exists to answer is whether the water arrives
-    # inside the agreed window, so a window that stretched to accommodate
-    # a slower filter would answer it by definition.
-    #
-    # It has to be said explicitly because the scenario's default is the
-    # end of the horizon, and the horizon has to grow to hold a longer
-    # filter's tail. Left to the default, a longer tail lengthened the
-    # window, the window lengthened the demand - nominal draw across the
-    # window is what demand means - and the same eight order blocks were
-    # asked to fill 35% more water. Feasibility collapsed, and it would
-    # have been read as the filter's doing. Measured: at a margin of 193
-    # the demand rose from 138,600 to 186,780 cubic metres with no change
-    # to the filter at all.
-    window = (
-        LEAD_BLOCKS * STEPS_PER_BLOCK,
-        horizon_for(BLOCKS, STEPS_PER_BLOCK, SETTLE_MARGIN_STEPS) - 1,
-    )
-    scenario = one_user_per_gate(
+    scenario = scenario_for(
+        fraction,
         network,
-        BLOCKS,
         limits,
-        source_discharge_m3_s=fraction * network.aggregate_demand,
-        window=window,
-        demand_scale=demand_scale,
-        lead_blocks=LEAD_BLOCKS,
-        announced_block=announced_block,
-        outlet_headroom=outlet_headroom,
         overshoot=overshoot,
         settle_margin=settle_margin,
+        announced_block=announced_block,
+        outlet_headroom=outlet_headroom,
+        demand_scale=demand_scale,
     )
     programme = assemble(scenario, mapping)
     names = programme.ratio.names

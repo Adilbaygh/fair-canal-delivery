@@ -1,14 +1,16 @@
 percent,fulfilled,short,worst_user,worst_ratio,impossible,binding,digest
-100,1,0,corning-3-user,1,,,def0a2082ce434f9582d078599604aa64b895f441642865b10ad1448bd9a3138
-95,0,8,,,,C8 source availability,42b79ae2c3fc230f8b5ba37ec40983a97b3958ba44e38665cc5d91111cec8fb0
-90,0,8,,,,C8 source availability,faea28b3c3b56f694501549a0330e08edc924e5920f9d37ec76668f8f0760d2e
-85,0,8,,,,C8 source availability,7ecd1b9a1f659e7fe059e236690dbdee8ca51d402e4c2042c9a874a37e3bd271
-80,0,8,,,,C8 source availability,ff0a89d555bcd6f791f36f0fa9a9b2840f4bf6296728dc6c2d0418f2c27a97dc
-75,0,8,,,,C8 source availability,4934f559c669c1823794a09bf2d79f97c840d1b1ddfe7612b012425b8c116b8c
-70,0,8,,,,C8 source availability,d83a0f9803fa1fea2b845caca5e0af5b14bbcbfe273879db2433f6f1fb493fca
-65,0,8,,,,C8 source availability,4d2c30c6ff2eb5a272b2f26fa6077e28f06c0af8f9a881ed5194e0646d02180c
-60,0,8,,,,C8 source availability,817f386a3bc11a5098711c6d32f0e1b79f106bf67bd7a0204d859d745b6cba89
-50,0,8,,,,C8 source availability,e1e02e9f5edfcfd89e5364daad6bae1391672432739bc6505fa9026ad3817169
-40,0,8,,,,C8 source availability,f01718fda7aacf789a25ef917b9756d0cba28b465f10f8e11d6cc1e74f6dc5e6
-35,0,8,,,,C8 source availability,4af90fd8ab1fc722f34b47a12f88ea8e9f33205994c3688fc8f4d4f6c4b0fb63
-30,0,8,,,,C2 delivered flow non-negative C8 source availability,9c4ee8b39596744a66b16ca32bd0fbeacc8b66147271f307db541f4cf2377a5c
+100,1,0,corning-2-user,1,,,82db3865abe783445ad50df85cd02ab8e208b9ac1cc40b33e48a99cb76245fb2
+95,0,8,,,,C8 source availability,a349c4bcb8fd34737227c823d4e3ad59a4e02d3426d434af15eee640a0a1796e
+90,0,8,,,,C8 source availability,54e68ae57891e204e8a370cae0bbd48c4fc11b029edab23092d05bc8a1de2200
+85,0,8,,,,C8 source availability,03fa92d2cb8400eefcef83bdfab74a941da5d94c2346f649352475afe7cf1d97
+80,0,8,,,,C8 source availability,38e5de9d80b4956e0105d4caeb1ba642918f0ddd51a0237190d0be65b5866fda
+75,0,8,,,,C8 source availability,e28c5891f97e73541fbf4524b288056f407b0f11fdc07205384fdbde8db60521
+70,0,8,,,,C8 source availability,69bc7bab2e6f7a434c02d0fd2c2dcd253218b91278e36bc4aaa3179dc98e566f
+65,0,8,,,,C8 source availability,990390982300a3851314bf45f637a07ad35c39b8d9f7a92cf896220c4d2c2f58
+60,0,8,,,,C8 source availability,97fdbf92923da8c7333d34f16a4a2cdade4177407cb3945e3fad76fd0b583e7b
+55,0,8,,,,C8 source availability,4db8e44f9521432f652d7b2687ca2e8feaeee55bccd36477916bbac64170b937
+50,0,8,,,,C8 source availability,3638b86c1386edaf5b8be2d7d5a9b4732b27237cf6e072e94b75b6bdf67633c1
+45,0,8,,,,C8 source availability,b5d96ac289a13feb66e6a75884c1bc4560a3eab62718c59c1a0c832d5657b1f4
+40,0,8,,,,C8 source availability,e596390803b0a916ddf7cfb21d8b373f0e2ea79aa1af894fc22c0ef0ef1fcf52
+35,0,8,,,,C2 delivered flow non-negative C8 source availability,63bb54d740a04eedd00e33ee0435efeae57ddff30f1e0c33d3325f1a481aa022
+30,0,8,,,,C2 delivered flow non-negative C8 source availability,67a648ab1796c9e8124ccd531163d8f15c75dd599fc231caf00c15eb568670e7

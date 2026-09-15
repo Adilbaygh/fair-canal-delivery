@@ -1,0 +1,343 @@
+{
+  "announce_block": 1,
+  "band_tolerance_m": 0.15,
+  "blocks": 8,
+  "bound_method": "highs",
+  "bound_time_limit_s": null,
+  "bound_tolerance": null,
+  "cap_scale": 1.0,
+  "certificate": {
+    "binding": [
+      {
+        "active_rows": 7,
+        "family": "C8 source availability",
+        "largest_price": 695.0641610018939,
+        "unit": "m^3/s"
+      }
+    ],
+    "ceilings": {
+      "corning-1-user": 1.0,
+      "corning-2-user": 1.0,
+      "corning-3-user": 1.0,
+      "corning-4-user": 1.0,
+      "corning-5-user": 1.0,
+      "corning-6-user": 1.0,
+      "corning-7-user": 1.0,
+      "corning-8-user": 1.0
+    },
+    "digest": "bcfe0e19178f70c97b5ccf3c4fab9330b493ef36f7be229cf5fc75c8f4caec41",
+    "fulfilled": false,
+    "impossible_users": [],
+    "ratios": {
+      "corning-1-user": 0.8161613019072032,
+      "corning-2-user": 0.816161301907203,
+      "corning-3-user": 0.816161301907203,
+      "corning-4-user": 0.816161301907203,
+      "corning-5-user": 0.8161613019072029,
+      "corning-6-user": 0.8161613019072032,
+      "corning-7-user": 0.816161301907203,
+      "corning-8-user": 0.8161613019072032
+    },
+    "relaxation": {
+      "binding_families": [
+        "C8 source availability"
+      ],
+      "cost": 0.33085921700500703,
+      "feasible": true,
+      "slacks": {
+        "C2 delivered flow non-negative": 0.0,
+        "C3 volume budget": 0.0,
+        "C5 gate flow inside the reach's conveyance": 0.0,
+        "C5' command inside the linear model's range": 0.0,
+        "C6 gate travel rate": 0.0,
+        "C7 level inside its band": 0.0,
+        "C8 source availability": 3.639451387055077,
+        "C9 pool storage between empty and full": 0.0,
+        "C9' storage agrees with the level": 0.0
+      },
+      "units": {
+        "C2 delivered flow non-negative": "m^3/s",
+        "C3 volume budget": "m^3",
+        "C5 gate flow inside the reach's conveyance": "m^3/s",
+        "C5' command inside the linear model's range": "m^3/s",
+        "C6 gate travel rate": "m^3/s per step",
+        "C7 level inside its band": "m",
+        "C8 source availability": "m^3/s",
+        "C9 pool storage between empty and full": "m^3",
+        "C9' storage agrees with the level": "m^3"
+      }
+    },
+    "report": "Delivery certificate for one-per-gate [bcfe0e19178f]\nNOT FILLED: 8 of 8 orders. Worst is corning-5-user at 0.8162 of its demand (463 m^3 short).\nEvery order is reachable on its own; what is missing is the water to fill them together.\nIn the way, by what a unit of it is worth:\n  C8 source availability: 7 active, largest price 695.064 per m^3/s\nEverybody could be filled if these gave together: C8 source availability +3.639 m^3/s.",
+    "saturated": [
+      [
+        "corning-8-user",
+        "corning-7-user",
+        "corning-6-user",
+        "corning-5-user",
+        "corning-4-user",
+        "corning-3-user",
+        "corning-2-user",
+        "corning-1-user"
+      ]
+    ],
+    "seconds": 9.165,
+    "shortfalls_m3": {
+      "corning-1-user": 3937.8249131477087,
+      "corning-2-user": 4169.461672744635,
+      "corning-3-user": 6254.192509116952,
+      "corning-4-user": 694.9102787907725,
+      "corning-5-user": 463.27351919384864,
+      "corning-6-user": 1853.0940767753923,
+      "corning-7-user": 2779.64111516309,
+      "corning-8-user": 5327.645470729252
+    },
+    "stage_levels": [
+      0.816161301907203
+    ]
+  },
+  "cutoff_rad_per_s": 0.003,
+  "demand_scale": 1.0,
+  "determinism": {
+    "l2_between_runs": 0.0,
+    "same_ratios": true,
+    "tie_break_cost": 53.67000592015273
+  },
+  "filter_order": 3,
+  "fraction": 0.6,
+  "frozen_settings": {
+    "announce_blocks": 1,
+    "band_area": "backwater",
+    "band_tolerance_m": 0.15,
+    "blocks": 8,
+    "conveyance_efficiency": 1.0,
+    "demand_floor_m3": 1.0,
+    "gamma_delivery": 0.0,
+    "gate_head_m": 0.1,
+    "lead_blocks": 2,
+    "outlet_headroom": 1.5,
+    "ratio_cap": 1.0,
+    "source_ramp_steps": 15,
+    "travel_fraction": 0.25,
+    "warm_up_steps": 15
+  },
+  "gate_head_m": 0.2,
+  "horizon_steps": 240,
+  "label": "head020",
+  "outlet_headroom": 1.5,
+  "overshoot": 0.0,
+  "scenario": {
+    "announced_block": 1,
+    "band_tolerance_m": 0.15,
+    "capacity_m3_s": [
+      8.693269807966676,
+      8.693269807966676,
+      12.517971661166069,
+      14.371160852613546,
+      14.371160852613546,
+      18.976660097816627,
+      18.976660097816627,
+      18.976660097816627
+    ],
+    "demand_m3": 138600.0,
+    "demand_scale": 1.0,
+    "gate_capacity_m3_s": [
+      10.875189763861595,
+      10.875189763861595,
+      15.225265669406236,
+      15.225265669406236,
+      19.45450613313018,
+      19.45450613313018,
+      19.45450613313018,
+      null
+    ],
+    "max_order_m3_s": [
+      3.4499999999999997,
+      1.7999999999999998,
+      1.2000000000000002,
+      0.30000000000000004,
+      0.44999999999999996,
+      4.050000000000001,
+      2.7,
+      2.55
+    ],
+    "outlet_headroom": 1.5,
+    "row_counts": {
+      "C2 delivered flow non-negative": 1920,
+      "C3 volume budget": 8,
+      "C5 gate flow inside the reach's conveyance": 3840,
+      "C5' command inside the linear model's range": 3840,
+      "C6 gate travel rate": 3824,
+      "C7 level inside its band": 3616,
+      "C8 source availability": 240,
+      "C9 pool storage between empty and full": 144,
+      "C9' storage agrees with the level": 144,
+      "ratio capped at one": 8
+    },
+    "rows": 17584,
+    "variables": 64
+  },
+  "settle_margin_steps": 120,
+  "source_m3_s": 6.6,
+  "users": [
+    "corning-8-user",
+    "corning-7-user",
+    "corning-6-user",
+    "corning-5-user",
+    "corning-4-user",
+    "corning-3-user",
+    "corning-2-user",
+    "corning-1-user"
+  ],
+  "variants": {
+    "B1": {
+      "detail": {
+        "norm": "L1",
+        "target": "zero deviation"
+      },
+      "feasible": true,
+      "fulfilled": false,
+      "n_programmes": 1,
+      "name": "ordering as usual",
+      "ratios": {
+        "corning-1-user": 0.8000455146237384,
+        "corning-2-user": 0.7354814317113662,
+        "corning-3-user": 0.7154548189227381,
+        "corning-4-user": 0.7980339413695308,
+        "corning-5-user": 0.873776527349325,
+        "corning-6-user": 0.9285713915279926,
+        "corning-7-user": 0.8384600167495461,
+        "corning-8-user": 0.9560555377149795
+      },
+      "seconds": 0.644,
+      "spread": 0.08028341345647505,
+      "status": "solved",
+      "total": 6.645879179969216,
+      "worst": 0.7154548189227381
+    },
+    "B2": {
+      "detail": {
+        "blocks_early": 1,
+        "distance_from_shifted": 14.941335841522122,
+        "shift_changed_the_target": true,
+        "shifted": "B1"
+      },
+      "feasible": true,
+      "fulfilled": false,
+      "n_programmes": 2,
+      "name": "the same order, one block sooner",
+      "ratios": {
+        "corning-1-user": 0.7335870956206236,
+        "corning-2-user": 0.7189398666460676,
+        "corning-3-user": 0.675416582654617,
+        "corning-4-user": 0.7266782441951298,
+        "corning-5-user": 0.8041287447204575,
+        "corning-6-user": 0.9148478944935019,
+        "corning-7-user": 0.8505734602756488,
+        "corning-8-user": 1.0
+      },
+      "seconds": 0.519,
+      "spread": 0.10462447855377009,
+      "status": "solved",
+      "total": 6.424171888606046,
+      "worst": 0.675416582654617
+    },
+    "B3": {
+      "detail": {},
+      "feasible": true,
+      "fulfilled": false,
+      "n_programmes": 1,
+      "name": "utilitarian",
+      "ratios": {
+        "corning-1-user": 1.0,
+        "corning-2-user": 0.7864950076969252,
+        "corning-3-user": 0.528779270787286,
+        "corning-4-user": 1.0,
+        "corning-5-user": 1.0,
+        "corning-6-user": 1.0,
+        "corning-7-user": 1.0,
+        "corning-8-user": 0.8410344678256939
+      },
+      "seconds": 0.483,
+      "spread": 0.1596584367303419,
+      "status": "solved",
+      "total": 7.1563087463099055,
+      "worst": 0.528779270787286
+    },
+    "B4": {
+      "detail": {
+        "accuracy_bound": 8e-06,
+        "refined": true,
+        "stage_levels": [
+          0.816161301907203
+        ],
+        "stage_saturated": [
+          [
+            "corning-8-user",
+            "corning-7-user",
+            "corning-6-user",
+            "corning-5-user",
+            "corning-4-user",
+            "corning-3-user",
+            "corning-2-user",
+            "corning-1-user"
+          ]
+        ],
+        "tie_break_cost": 53.67000592015273
+      },
+      "feasible": true,
+      "fulfilled": false,
+      "n_programmes": 10,
+      "name": "lexicographic max-min",
+      "ratios": {
+        "corning-1-user": 0.8161603019072031,
+        "corning-2-user": 0.8161603019072031,
+        "corning-3-user": 0.816160301907203,
+        "corning-4-user": 0.816160301907203,
+        "corning-5-user": 0.8161603019072029,
+        "corning-6-user": 0.8161603019072031,
+        "corning-7-user": 0.816160301907203,
+        "corning-8-user": 0.8161650845158986
+      },
+      "seconds": 8.123,
+      "spread": 1.5816991533361423e-06,
+      "status": "solved",
+      "total": 6.52928719786632,
+      "worst": 0.8161603019072029
+    },
+    "B5": {
+      "detail": {
+        "certified_width": 3.4164395157668394e-10,
+        "converged": true,
+        "corrections": 10,
+        "gap": 9.946180663730576e-11,
+        "iterations": 11,
+        "method": "fully corrective Frank-Wolfe, exact line search as fallback",
+        "schedules_mixed": 11,
+        "sigma_bounds": [
+          0.0,
+          3.4164395157668394e-10
+        ],
+        "sigma_tol": 1e-06
+      },
+      "feasible": true,
+      "fulfilled": false,
+      "n_programmes": 11,
+      "name": "least spread of fractions",
+      "ratios": {
+        "corning-1-user": 0.8161562373857046,
+        "corning-2-user": 0.8161562367307669,
+        "corning-3-user": 0.8161562367694517,
+        "corning-4-user": 0.8161562374059279,
+        "corning-5-user": 0.8161562367301552,
+        "corning-6-user": 0.8161562374084225,
+        "corning-7-user": 0.8161562376477386,
+        "corning-8-user": 0.8161562371947793
+      },
+      "seconds": 5.434,
+      "spread": 3.4164395157668394e-10,
+      "status": "solved",
+      "total": 6.529249897272948,
+      "worst": 0.8161562367301552
+    }
+  }
+}

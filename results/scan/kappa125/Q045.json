@@ -1,0 +1,183 @@
+{
+  "announce_block": 1,
+  "band_tolerance_m": 0.15,
+  "blocks": 8,
+  "bound_method": "highs",
+  "bound_time_limit_s": null,
+  "bound_tolerance": null,
+  "cap_scale": 1.0,
+  "certificate": {
+    "binding": [],
+    "ceilings": {
+      "corning-1-user": null,
+      "corning-2-user": null,
+      "corning-3-user": null,
+      "corning-4-user": null,
+      "corning-5-user": null,
+      "corning-6-user": null,
+      "corning-7-user": null,
+      "corning-8-user": null
+    },
+    "digest": "f01bfddffcb1eaf8a76305b903c1408c433b29763cb19dd5cc5992a7aa784b47",
+    "fulfilled": false,
+    "impossible_users": [],
+    "ratios": {},
+    "relaxation": {
+      "binding_families": [
+        "C8 source availability"
+      ],
+      "cost": 5.8586726628778514e-05,
+      "feasible": true,
+      "slacks": {
+        "C2 delivered flow non-negative": 0.0,
+        "C3 volume budget": 0.0,
+        "C5 gate flow inside the reach's conveyance": 0.0,
+        "C5' command inside the linear model's range": 0.0,
+        "C6 gate travel rate": 0.0,
+        "C7 level inside its band": 0.0,
+        "C8 source availability": 0.0006444539929165637,
+        "C9 pool storage between empty and full": 0.0,
+        "C9' storage agrees with the level": 0.0
+      },
+      "units": {
+        "C2 delivered flow non-negative": "m^3/s",
+        "C3 volume budget": "m^3",
+        "C5 gate flow inside the reach's conveyance": "m^3/s",
+        "C5' command inside the linear model's range": "m^3/s",
+        "C6 gate travel rate": "m^3/s per step",
+        "C7 level inside its band": "m",
+        "C8 source availability": "m^3/s",
+        "C9 pool storage between empty and full": "m^3",
+        "C9' storage agrees with the level": "m^3"
+      }
+    },
+    "report": "Delivery certificate for one-per-gate [f01bfddffcb1]\nNO SCHEDULE EXISTS: not one order can be met on these terms, however the water is shared.\nA schedule would exist if these gave together: C8 source availability +0.0006445 m^3/s.",
+    "saturated": [],
+    "shortfalls_m3": {
+      "corning-1-user": 21420.0,
+      "corning-2-user": 22680.0,
+      "corning-3-user": 34020.0,
+      "corning-4-user": 3780.0,
+      "corning-5-user": 2520.0,
+      "corning-6-user": 10080.0,
+      "corning-7-user": 15120.0,
+      "corning-8-user": 28979.999999999996
+    },
+    "stage_levels": []
+  },
+  "cutoff_rad_per_s": 0.003,
+  "demand_scale": 1.0,
+  "filter_order": 3,
+  "fraction": 0.45,
+  "frozen_settings": {
+    "announce_blocks": 1,
+    "band_area": "backwater",
+    "band_tolerance_m": 0.15,
+    "blocks": 8,
+    "conveyance_efficiency": 1.0,
+    "demand_floor_m3": 1.0,
+    "gamma_delivery": 0.0,
+    "gate_head_m": 0.1,
+    "lead_blocks": 2,
+    "outlet_headroom": 1.5,
+    "ratio_cap": 1.0,
+    "source_ramp_steps": 15,
+    "travel_fraction": 0.25,
+    "warm_up_steps": 15
+  },
+  "gate_head_m": 0.1,
+  "horizon_steps": 240,
+  "label": "kappa125",
+  "outlet_headroom": 1.25,
+  "overshoot": 0.0,
+  "scenario": {
+    "announced_block": 1,
+    "band_tolerance_m": 0.15,
+    "capacity_m3_s": [
+      8.693269807966676,
+      8.693269807966676,
+      12.517971661166069,
+      14.371160852613546,
+      14.371160852613546,
+      18.976660097816627,
+      18.976660097816627,
+      18.976660097816627
+    ],
+    "demand_m3": 138600.0,
+    "demand_scale": 1.0,
+    "gate_capacity_m3_s": [
+      7.689920428717063,
+      7.689920428717063,
+      10.765888600203889,
+      10.765888600203889,
+      13.756413211371632,
+      13.756413211371632,
+      13.756413211371632,
+      null
+    ],
+    "max_order_m3_s": [
+      2.875,
+      1.5,
+      1.0,
+      0.25,
+      0.375,
+      3.375,
+      2.25,
+      2.125
+    ],
+    "outlet_headroom": 1.25,
+    "row_counts": {
+      "C2 delivered flow non-negative": 1920,
+      "C3 volume budget": 8,
+      "C5 gate flow inside the reach's conveyance": 3840,
+      "C5' command inside the linear model's range": 3840,
+      "C6 gate travel rate": 3824,
+      "C7 level inside its band": 3616,
+      "C8 source availability": 240,
+      "C9 pool storage between empty and full": 144,
+      "C9' storage agrees with the level": 144,
+      "ratio capped at one": 8
+    },
+    "rows": 17584,
+    "variables": 64
+  },
+  "settle_margin_steps": 120,
+  "source_m3_s": 4.95,
+  "users": [
+    "corning-8-user",
+    "corning-7-user",
+    "corning-6-user",
+    "corning-5-user",
+    "corning-4-user",
+    "corning-3-user",
+    "corning-2-user",
+    "corning-1-user"
+  ],
+  "variants": {
+    "B1": {
+      "feasible": false,
+      "status": "infeasible",
+      "why": "B1 unchanged order: the solver returned status 2 (The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None))"
+    },
+    "B2": {
+      "feasible": false,
+      "status": "infeasible",
+      "why": "B1 unchanged order: the solver returned status 2 (The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None))"
+    },
+    "B3": {
+      "feasible": false,
+      "status": "infeasible",
+      "why": "B1 unchanged order: the solver returned status 2 (The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None))"
+    },
+    "B4": {
+      "feasible": false,
+      "status": "infeasible",
+      "why": "B1 unchanged order: the solver returned status 2 (The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None))"
+    },
+    "B5": {
+      "feasible": false,
+      "status": "infeasible",
+      "why": "B1 unchanged order: the solver returned status 2 (The problem is infeasible. (HiGHS Status 8: model_status is Infeasible; primal_status is None))"
+    }
+  }
+}

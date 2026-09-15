@@ -1,0 +1,16 @@
+percent,fulfilled,short,worst_user,worst_ratio,impossible,binding,digest
+100,1,0,corning-1-user,1,,,4d4d5e4a6d757dd36db2ecb8ae339a05b246d26eb0be3343bc95685482386402
+95,0,8,corning-3-user,0.9770201627,,C8 source availability,92f9d670b66dabd1ea25a47f27bb95d5c96c661f1a28063feed65025c32401a8
+90,0,8,corning-1-user,0.9540403255,,C8 source availability,e59a6fa7c2cb0f52d864f6d9c4e3a87eafe73e933ed44b9a5f2f066f81459b23
+85,0,8,corning-7-user,0.9310604882,,C8 source availability,d7d696fc867affb27219b8933ea548d0628a7c52e5333b9db61435d0201c0372
+80,0,8,corning-3-user,0.908080651,,C8 source availability,052d732474f5f5a4b7dda2bd06a7c54189768abd8cc774e681e9fca2286410f5
+75,0,8,corning-1-user,0.8851008137,,C8 source availability,c40f289d8da08da048ec03a5bc3080e30b1710b81404c79b3e1119818063ed98
+70,0,8,corning-1-user,0.8621209764,,C8 source availability,e64c937eef1a6fd7d8b812bfd05a7fcbad47336c14097d5b4e2c9ca29b3453ad
+65,0,8,corning-8-user,0.8391411392,,C8 source availability,811a0bccfa6f37d86633fc1fb172c5bb8fd1507cf956eff29c9a48b7221ddf05
+60,0,8,corning-3-user,0.8161613019,,C8 source availability,1d3a9d31d6956c82f33cb795cf7140007c96a35d519f64d42e277d78f4adba1b
+55,0,8,corning-1-user,0.7824982955,corning-1-user corning-2-user corning-3-user,C8 source availability,5b1db3649d691b2a7cd4d1cba13bcc0f95ecc590cda9742ece9d9c9f048efa49
+50,0,8,corning-3-user,0.6915486274,corning-1-user corning-2-user corning-3-user,C8 source availability,5006dc3d070a99e901a6ce338265d2c47bad8961149c6d9171c1beff371cd959
+45,0,8,,,,C8 source availability,eb6288dbde16809b0c73c52e05fd295f9ab7c14f4e097779b8eacc2572eccc6f
+40,0,8,,,,C8 source availability,c785f1b6fe7e3cfb1bd76d6d8cec498f21012f0b43d257789f7adc0ae13374c9
+35,0,8,,,,C8 source availability,a0a9efce04ed8cb153cc5ca9d15612c54a50d23c08a40f3ab5558bd812b801ee
+30,0,8,,,,C2 delivered flow non-negative C8 source availability,cbca3a95d046ecd41c042d9c0cb27d94633f5c1f124a4a6cfb2f36b8362af2e8

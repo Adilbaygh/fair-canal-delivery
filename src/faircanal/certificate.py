@@ -547,6 +547,23 @@ def digest_payload(programme: Programme) -> dict:
         "loss_factor": scenario.loss_factor,
         "warm_up_steps": scenario.limits.warm_up_steps,
         "capacity_m3_s": list(scenario.limits.capacity_m3_s),
+        # The gate limit, and not only the reach's conveyance. Leaving it
+        # out was caught the way the filter's absence was caught - by two
+        # runs that gave different answers sharing a digest. At half
+        # supply the scan and the narrow-gate sensitivity run returned
+        # 0.6915 and 0.6534 under the same sixteen hex digits, because the
+        # payload described the reach and not the gate the water has to
+        # pass to get into it. A gate with no published limit is null, not
+        # a large number: "none published" and "this wide" are different
+        # claims and must hash differently.
+        "gate_capacity_m3_s": (
+            None
+            if scenario.limits.gate_capacity_m3_s is None
+            else [
+                None if math.isinf(value) else value
+                for value in scenario.limits.gate_capacity_m3_s
+            ]
+        ),
         "nominal_m3_s": list(scenario.limits.nominal_m3_s),
         "level_band_m": [list(band) for band in scenario.limits.level_band_m],
         "travel_rate_m3_s": list(scenario.limits.travel_rate_m3_s),

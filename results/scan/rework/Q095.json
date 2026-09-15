@@ -25,7 +25,7 @@
       "corning-7-user": 1.0,
       "corning-8-user": 1.0
     },
-    "digest": "61fc29861f49af05c16053ce808998faba82995eb36651092420f7b0de321843",
+    "digest": "d51b27beb3f1be3e71ff4a238134d639ce17d24c15842ecfac72546f26bc562a",
     "fulfilled": false,
     "impossible_users": [],
     "ratios": {
@@ -67,7 +67,7 @@
         "C9' storage agrees with the level": "m^3"
       }
     },
-    "report": "Delivery certificate for one-per-gate [61fc29861f49]\nNOT FILLED: 8 of 8 orders. Worst is corning-5-user at 0.9770 of its demand (58 m^3 short).\nEvery order is reachable on its own; what is missing is the water to fill them together.\nIn the way, by what a unit of it is worth:\n  C8 source availability: 7 active, largest price 695.064 per m^3/s\nEverybody could be filled if these gave together: C8 source availability +0.4549 m^3/s.",
+    "report": "Delivery certificate for one-per-gate [d51b27beb3f1]\nNOT FILLED: 8 of 8 orders. Worst is corning-5-user at 0.9770 of its demand (58 m^3 short).\nEvery order is reachable on its own; what is missing is the water to fill them together.\nIn the way, by what a unit of it is worth:\n  C8 source availability: 7 active, largest price 695.064 per m^3/s\nEverybody could be filled if these gave together: C8 source availability +0.4549 m^3/s.",
     "saturated": [
       [
         "corning-8-user",

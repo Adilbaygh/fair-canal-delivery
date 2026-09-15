@@ -71,7 +71,12 @@ CAPTIONS = {
         "What each configuration changes and what it does not. The operable "
         "range is the set of supply levels at which a feasible schedule "
         "exists; the last column is the advantage of the lexicographic "
-        "criterion over leaving the order unchanged, over that range"
+        "criterion over leaving the order unchanged, over that range. The "
+        "rows above the rule move the filter or the budget; those below move "
+        "an assumption the model rests on, away from its frozen value of "
+        "$\\kappa = 1.5$, $\\Delta H$ = 0.10 m or $\\delta$ = 0.15 m. The head "
+        "cannot be lowered past 0.076 m, where the narrowest gate can no "
+        "longer pass the flow its own reach already carries"
     ),
 }
 
@@ -225,11 +230,21 @@ def table3() -> list[Path]:
         ("cut2e3", "order 3, $\\omega_c$ = 2 mrad/s"),
         ("order4", "order 4, $\\omega_c$ = 3 mrad/s"),
         ("budget", "volume budget +50\\%"),
+        (RULE, ""),
+        ("kappa125", "outlet headroom $\\kappa = 1.25$"),
+        ("kappa200", "outlet headroom $\\kappa = 2.00$"),
+        ("head008", "gate rating head $\\Delta H$ = 0.08 m"),
+        ("head020", "gate rating head $\\Delta H$ = 0.20 m"),
+        ("band010", "storage band $\\delta$ = 0.10 m"),
+        ("band025", "storage band $\\delta$ = 0.25 m"),
     )
     header = ["Configuration", "Operable range (\\%)", "Points",
               "$\\min_i r_i$ under B4", "B4 $-$ B1"]
     body = []
     for label, name in runs:
+        if label == RULE:
+            body.append([RULE] + [""] * (len(header) - 1))
+            continue
         table = worst(label)
         low = edge(table)
         got = sorted(p for p, v in table["B4"].items() if v is not None)
