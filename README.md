@@ -175,24 +175,37 @@ The machine-readable form is `CITATION.cff`. In prose:
 > Kudaybergenov, A., Kazimbetova, M., Ametova, G., Ispanova, J., Absametov, B.,
 > Qudaynazarov, M., Shikhiyev, R., Urazimbetova, E., & Nurullaev, Z. (2026).
 > *Fair-Canal-Delivery: lexicographic max-min water delivery under deadline and
-> capacity limits* (Version 0.1.0) [Computer software]. Zenodo.
-> https://doi.org/10.5281/zenodo.22723843
+> capacity limits* (Version 0.2.0) [Computer software]. Zenodo.
+> https://doi.org/10.5281/zenodo.22772981
 
 Zenodo mints two DOIs and they are not interchangeable:
 
 | DOI | Points at |
 |---|---|
-| `10.5281/zenodo.22723843` | **this version, 0.1.0** - cite this to name the exact code a number came from |
+| `10.5281/zenodo.22772981` | **this version, 0.2.0** - cite this to name the exact code a number came from |
 | `10.5281/zenodo.22723842` | all versions - resolves to whichever is newest |
+| `10.5281/zenodo.22723843` | version 0.1.0, superseded - see the note below |
 
-The archived file is `fair-canal-delivery-0.1.0.zip`, built with `git archive`
-from the `v0.1.0` tag, `md5:4f227a235502ebcfbbe0b5c082c0d1b6`. Anyone can check
-that the archive and this repository hold the same 171 files by rebuilding it:
+The archived file is `fair-canal-delivery-0.2.0.zip`, built with `git archive`
+from the `v0.2.0` tag, `md5:MD5SUM_RECORDED_AFTER_TAGGING`. The checksum is
+recorded in this file after the tag exists, so it is the checksum of an archive
+anybody can rebuild from that tag and compare:
 
 ```
-git archive --format=zip --prefix=fair-canal-delivery-0.1.0/ \
-    -o fair-canal-delivery-0.1.0.zip v0.1.0
+git archive --format=zip --prefix=fair-canal-delivery-0.2.0/ \
+    -o fair-canal-delivery-0.2.0.zip v0.2.0
 ```
+
+**Version 0.1.0 is superseded and should not be cited for a number.** Its
+lexicographic solver contained a fault: the saturation test that decides when a
+user can no longer be raised dropped a constant term from the fraction it was
+testing, so on this study's programme every user was declared saturated at the
+first stage and the procedure returned max-min where it promised leximin. The
+worst-off delivered fraction - every headline number - is unaffected, because it
+is the first stage's own answer; the fractions above it are not. The same release
+corrects which programme's shadow prices the infeasibility certificate reports.
+Both faults are covered by regression tests, and the whole result archive in 0.2.0
+was re-solved by one version of the code.
 
 The Zenodo **record** and both DOIs are public. The **files** are restricted
 while the article is under review, and open on acceptance.

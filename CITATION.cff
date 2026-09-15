@@ -2,8 +2,8 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 title: "Fair-Canal-Delivery: lexicographic max-min water delivery under deadline and capacity limits"
 type: software
-version: "0.1.0"
-date-released: "2026-09-12"
+version: "0.2.0"
+date-released: "2026-09-15"
 abstract: >-
   A reproducibility package for a study of fair water delivery on an
   irrigation canal. Fairness is measured on the volume a user actually
@@ -122,12 +122,13 @@ license:
   - MIT
   - CC-BY-4.0
 repository-code: "https://github.com/Adilbaygh/fair-canal-delivery"
-# The archive on Zenodo, published 2026-09-12. Two DOIs exist and they are
+# The archive on Zenodo, first published 2026-09-12 and at version 0.2.0 on
+# 2026-09-15. Two DOIs exist and they are
 # not interchangeable: the one below is *this version*, and citing it names
 # the exact code that produced a given number. The concept DOI under
 # `identifiers` resolves to whichever version is newest, which is what to
 # cite when the version does not matter.
-doi: "10.5281/zenodo.22723843"
+doi: "10.5281/zenodo.22772981"
 identifiers:
   - type: doi
     value: "10.5281/zenodo.22723842"
