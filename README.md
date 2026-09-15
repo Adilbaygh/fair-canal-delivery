@@ -214,5 +214,8 @@ archive built from the tag its README describes, so the checksum published there
 does not match the file. Version 0.2.1 is the first whose deposited archive
 matches its own documentation.
 
-The Zenodo **record** and both DOIs are public. The **files** are restricted
+The archive built from the `v0.2.1` tag is `md5:a33104a6cd66460b6fb6e0915d53f990`,
+2 081 412 bytes.
+
+The Zenodo **record** and every one of its DOIs are public. The **files** are restricted
 while the article is under review, and open on acceptance.
