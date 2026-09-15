@@ -217,5 +217,6 @@ matches its own documentation.
 The archive built from the `v0.2.1` tag is `md5:a33104a6cd66460b6fb6e0915d53f990`,
 2 081 412 bytes.
 
-The Zenodo **record** and every one of its DOIs are public. The **files** are restricted
-while the article is under review, and open on acceptance.
+The Zenodo **record**, every one of its DOIs and the archived files are public. The
+deposit was opened on 2026-09-15 so that a reviewer can read the code without having to
+request access.
