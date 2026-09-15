@@ -187,7 +187,7 @@ Zenodo mints two DOIs and they are not interchangeable:
 | `10.5281/zenodo.22723843` | version 0.1.0, superseded - see the note below |
 
 The archived file is `fair-canal-delivery-0.2.0.zip`, built with `git archive`
-from the `v0.2.0` tag, `md5:MD5SUM_RECORDED_AFTER_TAGGING`. The checksum is
+from the `v0.2.0` tag, `md5:80cd563dc34c02caeb7734d6c691f32b`. The checksum is
 recorded in this file after the tag exists, so it is the checksum of an archive
 anybody can rebuild from that tag and compare:
 
