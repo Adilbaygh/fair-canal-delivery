@@ -175,40 +175,44 @@ The machine-readable form is `CITATION.cff`. In prose:
 > Kudaybergenov, A., Kazimbetova, M., Ametova, G., Ispanova, J., Absametov, B.,
 > Qudaynazarov, M., Shikhiyev, R., Urazimbetova, E., & Nurullaev, Z. (2026).
 > *Fair-Canal-Delivery: lexicographic max-min water delivery under deadline and
-> capacity limits* (Version 0.2.0) [Computer software]. Zenodo.
-> https://doi.org/10.5281/zenodo.22772981
+> capacity limits* (Version 0.2.1) [Computer software]. Zenodo.
+> https://doi.org/10.5281/zenodo.22773437
 
-Zenodo mints two DOIs and they are not interchangeable:
+Zenodo mints a DOI for each version and one for the record as a whole, and they
+are not interchangeable:
 
 | DOI | Points at |
 |---|---|
-| `10.5281/zenodo.22772981` | **this version, 0.2.0** - cite this to name the exact code a number came from |
+| `10.5281/zenodo.22773437` | **this version, 0.2.1** - cite this to name the exact code a number came from |
 | `10.5281/zenodo.22723842` | all versions - resolves to whichever is newest |
+| `10.5281/zenodo.22772981` | version 0.2.0, superseded - see the note below |
 | `10.5281/zenodo.22723843` | version 0.1.0, superseded - see the note below |
 
-The archived file is `fair-canal-delivery-0.2.0.zip`, built with `git archive`
-from the `v0.2.0` tag. No file can carry its own checksum, so the MD5 is
+The archived file is `fair-canal-delivery-0.2.1.zip`, built with `git archive`
+from the `v0.2.1` tag. No file can carry its own checksum, so the MD5 is
 published in the two places outside it: beside the file on Zenodo, and in this
 README on GitHub, added in the commit that follows the tag. Rebuild the archive
 from the tag and compare it against either:
 
 ```
-git archive --format=zip --prefix=fair-canal-delivery-0.2.0/ \
-    -o fair-canal-delivery-0.2.0.zip v0.2.0
+git archive --format=zip --prefix=fair-canal-delivery-0.2.1/ \
+    -o fair-canal-delivery-0.2.1.zip v0.2.1
 ```
 
-**Version 0.1.0 is superseded and should not be cited for a number.** Its
-lexicographic solver contained a fault: the saturation test that decides when a
-user can no longer be raised dropped a constant term from the fraction it was
-testing, so on this study's programme every user was declared saturated at the
-first stage and the procedure returned max-min where it promised leximin. The
-worst-off delivered fraction - every headline number - is unaffected, because it
-is the first stage's own answer; the fractions above it are not. The same release
-corrects which programme's shadow prices the infeasibility certificate reports.
-Both faults are covered by regression tests, and the whole result archive in 0.2.0
-was re-solved by one version of the code.
-
-The archive built from the `v0.2.0` tag is `md5:eb26477035449abf98b6822b8632b140`.
+**Versions 0.1.0 and 0.2.0 are superseded.** The lexicographic solver in 0.1.0
+contained a fault: the saturation test that decides when a user can no longer be
+raised dropped a constant term from the fraction it was testing, so on this
+study's programme every user was declared saturated at the first stage and the
+procedure returned max-min where it promised leximin. The worst-off delivered
+fraction - every headline number - is unaffected, because it is the first stage's
+own answer; the fractions above it are not. The same release corrects which
+programme's shadow prices the infeasibility certificate reports. Both faults are
+covered by regression tests, and the whole result archive was re-solved by one
+version of the code. Version 0.2.0 carries that corrected code, but the file
+deposited with it is a download of this repository's main branch rather than the
+archive built from the tag its README describes, so the checksum published there
+does not match the file. Version 0.2.1 is the first whose deposited archive
+matches its own documentation.
 
 The Zenodo **record** and both DOIs are public. The **files** are restricted
 while the article is under review, and open on acceptance.

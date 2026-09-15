@@ -2,7 +2,7 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
 title: "Fair-Canal-Delivery: lexicographic max-min water delivery under deadline and capacity limits"
 type: software
-version: "0.2.0"
+version: "0.2.1"
 date-released: "2026-09-15"
 abstract: >-
   A reproducibility package for a study of fair water delivery on an
@@ -128,7 +128,7 @@ repository-code: "https://github.com/Adilbaygh/fair-canal-delivery"
 # the exact code that produced a given number. The concept DOI under
 # `identifiers` resolves to whichever version is newest, which is what to
 # cite when the version does not matter.
-doi: "10.5281/zenodo.22772981"
+doi: "10.5281/zenodo.22773437"
 identifiers:
   - type: doi
     value: "10.5281/zenodo.22723842"
